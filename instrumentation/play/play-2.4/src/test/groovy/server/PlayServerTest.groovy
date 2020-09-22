@@ -13,18 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package server
-
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
-import io.opentelemetry.auto.test.asserts.TraceAssert
-import io.opentelemetry.auto.test.base.HttpServerTest
-import io.opentelemetry.sdk.trace.data.SpanData
-import play.mvc.Results
-import play.routing.RoutingDsl
-import play.server.Server
-
-import java.util.function.Supplier
 
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.ERROR
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.EXCEPTION
@@ -32,6 +22,14 @@ import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.QUER
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.REDIRECT
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCCESS
 import static io.opentelemetry.trace.Span.Kind.INTERNAL
+
+import io.opentelemetry.auto.test.asserts.TraceAssert
+import io.opentelemetry.auto.test.base.HttpServerTest
+import io.opentelemetry.sdk.trace.data.SpanData
+import java.util.function.Supplier
+import play.mvc.Results
+import play.routing.RoutingDsl
+import play.server.Server
 
 class PlayServerTest extends HttpServerTest<Server> {
   @Override
@@ -87,20 +85,17 @@ class PlayServerTest extends HttpServerTest<Server> {
     trace.span(index) {
       operationName "play.request"
       spanKind INTERNAL
-      errored endpoint == ERROR || endpoint == EXCEPTION
-      childOf((SpanData) parent)
-      tags {
-        "$MoreTags.NET_PEER_IP" { it == null || it == "127.0.0.1" } // Optional
-        "$Tags.HTTP_URL" String
-        "$Tags.HTTP_METHOD" String
-        "$Tags.HTTP_STATUS" Long
-        if (endpoint == EXCEPTION) {
-          errorTags(Exception, EXCEPTION.body)
-        }
-        if (endpoint.query) {
-          "$MoreTags.HTTP_QUERY" endpoint.query
-        }
+      errored endpoint == EXCEPTION
+      if (endpoint == EXCEPTION) {
+        errorEvent(Exception, EXCEPTION.body)
       }
+      childOf((SpanData) parent)
     }
   }
+
+  @Override
+  String expectedServerSpanName(String method, ServerEndpoint endpoint) {
+    return "netty.request"
+  }
+
 }

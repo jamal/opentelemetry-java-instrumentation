@@ -13,7 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.opentelemetry.auto.util.test
+
+import static net.bytebuddy.description.modifier.FieldManifestation.VOLATILE
+import static net.bytebuddy.description.modifier.Ownership.STATIC
+import static net.bytebuddy.description.modifier.Visibility.PUBLIC
+import static net.bytebuddy.matcher.ElementMatchers.named
+import static net.bytebuddy.matcher.ElementMatchers.none
 
 import net.bytebuddy.agent.ByteBuddyAgent
 import net.bytebuddy.agent.builder.AgentBuilder
@@ -23,14 +30,8 @@ import net.bytebuddy.dynamic.ClassFileLocator
 import net.bytebuddy.dynamic.Transformer
 import spock.lang.Specification
 
-import static net.bytebuddy.description.modifier.FieldManifestation.VOLATILE
-import static net.bytebuddy.description.modifier.Ownership.STATIC
-import static net.bytebuddy.description.modifier.Visibility.PUBLIC
-import static net.bytebuddy.matcher.ElementMatchers.named
-import static net.bytebuddy.matcher.ElementMatchers.none
-
 abstract class AgentSpecification extends Specification {
-  private static final String CONFIG = "io.opentelemetry.auto.config.Config"
+  private static final String CONFIG = "io.opentelemetry.instrumentation.api.config.Config"
 
   static {
     addByteBuddyRawSetting()
@@ -44,10 +45,10 @@ abstract class AgentSpecification extends Specification {
   // it's needed here, because the test harness loads bytebuddy early
   // and then it's too late to set the property in AgentInstaller
   static void addByteBuddyRawSetting() {
-    final String savedPropertyValue = System.getProperty(TypeDefinition.RAW_TYPES_PROPERTY)
+    String savedPropertyValue = System.getProperty(TypeDefinition.RAW_TYPES_PROPERTY)
     try {
       System.setProperty(TypeDefinition.RAW_TYPES_PROPERTY, "true")
-      final boolean rawTypes = TypeDescription.AbstractBase.RAW_TYPES
+      boolean rawTypes = TypeDescription.AbstractBase.RAW_TYPES
       if (!rawTypes) {
         System.err.println("Too late to enable $TypeDefinition.RAW_TYPES_PROPERTY")
       }

@@ -13,15 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
-import io.opentelemetry.auto.test.asserts.TraceAssert
-import io.opentelemetry.auto.test.base.HttpServerTest
-import spock.lang.Retry
 
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.EXCEPTION
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCCESS
-import static io.opentelemetry.trace.Span.Kind.SERVER
+import io.opentelemetry.auto.test.base.HttpServerTest
 
 abstract class AkkaHttpServerInstrumentationTest extends HttpServerTest<Object> {
 
@@ -41,35 +34,12 @@ abstract class AkkaHttpServerInstrumentationTest extends HttpServerTest<Object> 
 //    AkkaHttpTestWebServer.stop()
 //  }
 
-  void serverSpan(TraceAssert trace, int index, String traceID = null, String parentID = null, String method = "GET", ServerEndpoint endpoint = SUCCESS) {
-    trace.span(index) {
-      operationName expectedOperationName(method, endpoint)
-      spanKind SERVER
-      errored endpoint.errored
-      if (parentID != null) {
-        traceId traceID
-        parentId parentID
-      } else {
-        parent()
-      }
-      tags {
-        "$Tags.HTTP_URL" { it == "${endpoint.resolve(address)}" || it == "${endpoint.resolveWithoutFragment(address)}" }
-        "$Tags.HTTP_METHOD" method
-        "$Tags.HTTP_STATUS" endpoint.status
-        if (endpoint.errored) {
-          "error.msg" { it == null || it == EXCEPTION.body }
-          "error.type" { it == null || it == Exception.name }
-          "error.stack" { it == null || it instanceof String }
-        }
-        if (endpoint.query) {
-          "$MoreTags.HTTP_QUERY" endpoint.query
-        }
-      }
-    }
+  @Override
+  String expectedServerSpanName(String method, ServerEndpoint endpoint) {
+    return "akka.request"
   }
 }
 
-@Retry
 class AkkaHttpServerInstrumentationTestSync extends AkkaHttpServerInstrumentationTest {
   @Override
   def startServer(int port) {
@@ -82,7 +52,6 @@ class AkkaHttpServerInstrumentationTestSync extends AkkaHttpServerInstrumentatio
   }
 }
 
-@Retry
 class AkkaHttpServerInstrumentationTestAsync extends AkkaHttpServerInstrumentationTest {
   @Override
   def startServer(int port) {

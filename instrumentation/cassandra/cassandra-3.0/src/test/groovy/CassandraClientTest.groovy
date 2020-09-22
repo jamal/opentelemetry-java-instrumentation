@@ -13,24 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import com.datastax.driver.core.Cluster
-import com.datastax.driver.core.Session
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
-import io.opentelemetry.auto.test.AgentTestRunner
-import io.opentelemetry.auto.test.asserts.TraceAssert
-import io.opentelemetry.sdk.trace.data.SpanData
-import org.cassandraunit.utils.EmbeddedCassandraServerHelper
-import spock.lang.Shared
 
 import static io.opentelemetry.auto.test.utils.TraceUtils.basicSpan
 import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
 import static io.opentelemetry.trace.Span.Kind.CLIENT
 
+import com.datastax.driver.core.Cluster
+import com.datastax.driver.core.Session
+import io.opentelemetry.auto.test.AgentTestRunner
+import io.opentelemetry.auto.test.asserts.TraceAssert
+import io.opentelemetry.sdk.trace.data.SpanData
+import io.opentelemetry.trace.attributes.SemanticAttributes
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
+import org.cassandraunit.utils.EmbeddedCassandraServerHelper
+import spock.lang.Shared
+
 class CassandraClientTest extends AgentTestRunner {
 
   @Shared
   Cluster cluster
+
+  @Shared
+  def executor = Executors.newCachedThreadPool()
 
   def setupSpec() {
     /*
@@ -86,9 +91,15 @@ class CassandraClientTest extends AgentTestRunner {
 
   def "test async"() {
     setup:
+    def callbackExecuted = new AtomicBoolean()
     Session session = cluster.connect(keyspace)
     runUnderTrace("parent") {
-      session.executeAsync(statement)
+      def future = session.executeAsync(statement)
+      future.addListener({ ->
+        runUnderTrace("callbackListener") {
+          callbackExecuted.set(true)
+        }
+      }, executor)
     }
 
     expect:
@@ -98,9 +109,10 @@ class CassandraClientTest extends AgentTestRunner {
           cassandraSpan(it, 0, "USE $keyspace", null)
         }
       }
-      trace(keyspace ? 1 : 0, 2) {
+      trace(keyspace ? 1 : 0, 3) {
         basicSpan(it, 0, "parent")
         cassandraSpan(it, 1, statement, keyspace, span(0))
+        basicSpan(it, 2, "callbackListener", span(0))
       }
     }
 
@@ -125,13 +137,13 @@ class CassandraClientTest extends AgentTestRunner {
       } else {
         childOf((SpanData) parentSpan)
       }
-      tags {
-        "$MoreTags.NET_PEER_NAME" "localhost"
-        "$MoreTags.NET_PEER_IP" "127.0.0.1"
-        "$MoreTags.NET_PEER_PORT" EmbeddedCassandraServerHelper.getNativeTransportPort()
-        "$Tags.DB_TYPE" "cassandra"
-        "$Tags.DB_INSTANCE" keyspace
-        "$Tags.DB_STATEMENT" statement
+      attributes {
+        "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
+        "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+        "${SemanticAttributes.NET_PEER_PORT.key()}" EmbeddedCassandraServerHelper.getNativeTransportPort()
+        "${SemanticAttributes.DB_SYSTEM.key()}" "cassandra"
+        "${SemanticAttributes.DB_NAME.key()}" keyspace
+        "${SemanticAttributes.DB_STATEMENT.key()}" statement
       }
     }
   }

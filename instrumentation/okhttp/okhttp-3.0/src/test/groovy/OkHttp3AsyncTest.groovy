@@ -13,6 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static java.util.concurrent.TimeUnit.SECONDS
+
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicReference
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.Headers
@@ -21,11 +26,6 @@ import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.Response
 import okhttp3.internal.http.HttpMethod
-
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.atomic.AtomicReference
-
-import static java.util.concurrent.TimeUnit.SECONDS
 
 class OkHttp3AsyncTest extends OkHttp3Test {
 

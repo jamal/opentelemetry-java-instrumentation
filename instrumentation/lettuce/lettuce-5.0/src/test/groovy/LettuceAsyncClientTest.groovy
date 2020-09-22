@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.opentelemetry.trace.Span.Kind.CLIENT
+
 import io.lettuce.core.ClientOptions
 import io.lettuce.core.ConnectionFuture
 import io.lettuce.core.RedisClient
@@ -23,14 +26,9 @@ import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.api.sync.RedisCommands
 import io.lettuce.core.codec.StringCodec
 import io.lettuce.core.protocol.AsyncCommand
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
 import io.opentelemetry.auto.test.AgentTestRunner
 import io.opentelemetry.auto.test.utils.PortUtils
-import redis.embedded.RedisServer
-import spock.lang.Shared
-import spock.util.concurrent.AsyncConditions
-
+import io.opentelemetry.trace.attributes.SemanticAttributes
 import java.util.concurrent.CancellationException
 import java.util.concurrent.CompletionException
 import java.util.concurrent.ExecutionException
@@ -39,11 +37,13 @@ import java.util.function.BiConsumer
 import java.util.function.BiFunction
 import java.util.function.Consumer
 import java.util.function.Function
-
-import static io.opentelemetry.trace.Span.Kind.CLIENT
+import redis.embedded.RedisServer
+import spock.lang.Shared
+import spock.util.concurrent.AsyncConditions
 
 class LettuceAsyncClientTest extends AgentTestRunner {
-  public static final String HOST = "127.0.0.1"
+  public static final String PEER_NAME = "localhost"
+  public static final String PEER_IP = "127.0.0.1"
   public static final int DB_INDEX = 0
   // Disable autoreconnect so we do not get stray traces popping up on server shutdown
   public static final ClientOptions CLIENT_OPTIONS = ClientOptions.builder().autoReconnect(false).build()
@@ -79,14 +79,14 @@ class LettuceAsyncClientTest extends AgentTestRunner {
   def setupSpec() {
     port = PortUtils.randomOpenPort()
     incorrectPort = PortUtils.randomOpenPort()
-    dbAddr = HOST + ":" + port + "/" + DB_INDEX
-    dbAddrNonExistent = HOST + ":" + incorrectPort + "/" + DB_INDEX
+    dbAddr = PEER_NAME + ":" + port + "/" + DB_INDEX
+    dbAddrNonExistent = PEER_NAME + ":" + incorrectPort + "/" + DB_INDEX
     dbUriNonExistent = "redis://" + dbAddrNonExistent
     embeddedDbUri = "redis://" + dbAddr
 
     redisServer = RedisServer.builder()
     // bind to localhost to avoid firewall popup
-      .setting("bind " + HOST)
+      .setting("bind " + PEER_NAME)
     // set max memory to avoid problems in CI
       .setting("maxmemory 128M")
       .port(port).build()
@@ -122,7 +122,7 @@ class LettuceAsyncClientTest extends AgentTestRunner {
 
     when:
     ConnectionFuture connectionFuture = testConnectionClient.connectAsync(StringCodec.UTF8,
-      new RedisURI(HOST, port, 3, TimeUnit.SECONDS))
+      new RedisURI(PEER_NAME, port, 3, TimeUnit.SECONDS))
     StatefulConnection connection = connectionFuture.get()
 
     then:
@@ -133,10 +133,12 @@ class LettuceAsyncClientTest extends AgentTestRunner {
           operationName "CONNECT"
           spanKind CLIENT
           errored false
-          tags {
-            "$MoreTags.NET_PEER_NAME" HOST
-            "$MoreTags.NET_PEER_PORT" port
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.NET_PEER_NAME.key()}" PEER_NAME
+            "${SemanticAttributes.NET_PEER_IP.key()}" PEER_IP
+            "${SemanticAttributes.NET_PEER_PORT.key()}" port
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "CONNECT"
             "db.redis.dbIndex" 0
           }
         }
@@ -154,7 +156,7 @@ class LettuceAsyncClientTest extends AgentTestRunner {
 
     when:
     ConnectionFuture connectionFuture = testConnectionClient.connectAsync(StringCodec.UTF8,
-      new RedisURI(HOST, incorrectPort, 3, TimeUnit.SECONDS))
+      new RedisURI(PEER_NAME, incorrectPort, 3, TimeUnit.SECONDS))
     StatefulConnection connection = connectionFuture.get()
 
     then:
@@ -166,12 +168,14 @@ class LettuceAsyncClientTest extends AgentTestRunner {
           operationName "CONNECT"
           spanKind CLIENT
           errored true
-          tags {
-            "$MoreTags.NET_PEER_NAME" HOST
-            "$MoreTags.NET_PEER_PORT" incorrectPort
-            "$Tags.DB_TYPE" "redis"
+          errorEvent CompletionException, String
+          attributes {
+            "${SemanticAttributes.NET_PEER_NAME.key()}" PEER_NAME
+            "${SemanticAttributes.NET_PEER_IP.key()}" PEER_IP
+            "${SemanticAttributes.NET_PEER_PORT.key()}" incorrectPort
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "CONNECT"
             "db.redis.dbIndex" 0
-            errorTags CompletionException, String
           }
         }
       }
@@ -191,8 +195,9 @@ class LettuceAsyncClientTest extends AgentTestRunner {
           operationName "SET"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "SET"
           }
         }
       }
@@ -223,8 +228,9 @@ class LettuceAsyncClientTest extends AgentTestRunner {
           operationName "GET"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "GET"
           }
         }
       }
@@ -236,7 +242,7 @@ class LettuceAsyncClientTest extends AgentTestRunner {
   def "get non existent key command with handleAsync and chained with thenApply"() {
     setup:
     def conds = new AsyncConditions()
-    final String successStr = "KEY MISSING"
+    String successStr = "KEY MISSING"
     BiFunction<String, Throwable, String> firstStage = new BiFunction<String, Throwable, String>() {
       @Override
       String apply(String res, Throwable throwable) {
@@ -269,8 +275,9 @@ class LettuceAsyncClientTest extends AgentTestRunner {
           operationName "GET"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "GET"
           }
         }
       }
@@ -301,8 +308,9 @@ class LettuceAsyncClientTest extends AgentTestRunner {
           operationName "RANDOMKEY"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "RANDOMKEY"
           }
         }
       }
@@ -351,8 +359,9 @@ class LettuceAsyncClientTest extends AgentTestRunner {
           operationName "HMSET"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "HMSET"
           }
         }
       }
@@ -361,8 +370,9 @@ class LettuceAsyncClientTest extends AgentTestRunner {
           operationName "HGETALL"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "HGETALL"
           }
         }
       }
@@ -401,9 +411,10 @@ class LettuceAsyncClientTest extends AgentTestRunner {
           operationName "DEL"
           spanKind CLIENT
           errored true
-          tags {
-            "$Tags.DB_TYPE" "redis"
-            errorTags(IllegalStateException, "TestException")
+          errorEvent(IllegalStateException, "TestException")
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "DEL"
           }
         }
       }
@@ -436,8 +447,9 @@ class LettuceAsyncClientTest extends AgentTestRunner {
           operationName "SADD"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "SADD"
             "db.command.cancelled" true
           }
         }
@@ -456,8 +468,9 @@ class LettuceAsyncClientTest extends AgentTestRunner {
           operationName "DEBUG"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "DEBUG"
           }
         }
       }
@@ -476,8 +489,9 @@ class LettuceAsyncClientTest extends AgentTestRunner {
           operationName "SHUTDOWN"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "SHUTDOWN"
           }
         }
       }

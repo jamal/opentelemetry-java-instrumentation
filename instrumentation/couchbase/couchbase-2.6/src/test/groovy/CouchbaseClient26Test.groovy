@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import io.opentelemetry.auto.test.asserts.TraceAssert
 
-class CouchbaseClient26Test extends CouchbaseClientTest {
+class CouchbaseClient26Test extends AbstractCouchbaseClientTest {
   @Override
   void assertCouchbaseCall(TraceAssert trace, int index, Object name, String bucketName = null, Object parentSpan = null) {
     CouchbaseSpanUtil.assertCouchbaseCall(trace, index, name, bucketName, parentSpan)

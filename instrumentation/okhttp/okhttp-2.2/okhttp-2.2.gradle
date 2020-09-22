@@ -1,5 +1,4 @@
 apply from: "$rootDir/gradle/instrumentation.gradle"
-apply plugin: 'org.unbroken-dome.test-sets'
 
 /*
 Note: The Interceptor class for OkHttp was not introduced until 2.2+, so we need to make sure the
@@ -14,22 +13,10 @@ muzzle {
   }
 }
 
-testSets {
-  latestDepTest {
-    dirName = 'test'
-  }
-}
-
 dependencies {
-  compileOnly(group: 'com.squareup.okhttp', name: 'okhttp', version: '2.2.0')
+  library(group: 'com.squareup.okhttp', name: 'okhttp', version: '2.2.0')
 
-  compile project(':auto-tooling')
-
-  testCompile project(':testing')
-  testCompile project(':instrumentation:java-concurrent')
-  testCompile group: 'com.squareup.okhttp', name: 'okhttp', version: '2.2.0'
-
-  latestDepTestCompile group: 'com.squareup.okhttp', name: 'okhttp', version: '[2.6,3)'
+  latestDepTestLibrary group: 'com.squareup.okhttp', name: 'okhttp', version: '[2.6,3)'
 }
 
 

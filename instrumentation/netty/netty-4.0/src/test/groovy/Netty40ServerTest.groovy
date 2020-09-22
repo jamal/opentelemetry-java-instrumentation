@@ -13,6 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH
+import static io.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE
+import static io.netty.handler.codec.http.HttpResponseStatus.INTERNAL_SERVER_ERROR
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1
+import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.ERROR
+import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.EXCEPTION
+import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.NOT_FOUND
+import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.QUERY_PARAM
+import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.REDIRECT
+import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCCESS
+
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
@@ -34,17 +46,6 @@ import io.netty.handler.logging.LogLevel
 import io.netty.handler.logging.LoggingHandler
 import io.netty.util.CharsetUtil
 import io.opentelemetry.auto.test.base.HttpServerTest
-
-import static io.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH
-import static io.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE
-import static io.netty.handler.codec.http.HttpResponseStatus.INTERNAL_SERVER_ERROR
-import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.ERROR
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.EXCEPTION
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.NOT_FOUND
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.QUERY_PARAM
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.REDIRECT
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCCESS
 
 class Netty40ServerTest extends HttpServerTest<EventLoopGroup> {
 
@@ -120,5 +121,16 @@ class Netty40ServerTest extends HttpServerTest<EventLoopGroup> {
   @Override
   void stopServer(EventLoopGroup server) {
     server?.shutdownGracefully()
+  }
+
+  @Override
+  String expectedServerSpanName(String method, ServerEndpoint endpoint) {
+    return "netty.request"
+  }
+
+  @Override
+  boolean testException() {
+    // https://github.com/open-telemetry/opentelemetry-java-instrumentation/issues/807
+    return false
   }
 }

@@ -13,11 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
+
+import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.EXCEPTION
+import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCCESS
+import static io.opentelemetry.trace.Span.Kind.SERVER
+
 import io.opentelemetry.auto.test.asserts.TraceAssert
 import io.opentelemetry.auto.test.base.HttpServerTest
-import org.apache.catalina.servlets.DefaultServlet
+import io.opentelemetry.trace.attributes.SemanticAttributes
 import org.glassfish.embeddable.BootstrapProperties
 import org.glassfish.embeddable.Deployer
 import org.glassfish.embeddable.GlassFish
@@ -25,13 +28,9 @@ import org.glassfish.embeddable.GlassFishProperties
 import org.glassfish.embeddable.GlassFishRuntime
 import org.glassfish.embeddable.archive.ScatteredArchive
 
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.EXCEPTION
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCCESS
-import static io.opentelemetry.trace.Span.Kind.SERVER
-
 /**
  * Unfortunately because we're using an embedded GlassFish instance, we aren't exercising the standard
- * OSGi setup that requires {@link io.opentelemetry.auto.instrumentation.javaclassloader.ClassloadingInstrumentation}.
+ * OSGi setup that requires {@link io.opentelemetry.instrumentation.auto.javaclassloader.ClassloadingInstrumentation}.
  */
 // TODO: Figure out a better way to test with OSGi included.
 class GlassFishServerTest extends HttpServerTest<GlassFish> {
@@ -82,7 +81,7 @@ class GlassFishServerTest extends HttpServerTest<GlassFish> {
   }
 
   @Override
-  void serverSpan(TraceAssert trace, int index, String traceID = null, String parentID = null, String method = "GET", ServerEndpoint endpoint = SUCCESS) {
+  void serverSpan(TraceAssert trace, int index, String traceID = null, String parentID = null, String method = "GET", Long responseContentLength = null, ServerEndpoint endpoint = SUCCESS) {
     trace.span(index) {
       operationName entryPointName()
       spanKind SERVER
@@ -93,23 +92,18 @@ class GlassFishServerTest extends HttpServerTest<GlassFish> {
       } else {
         parent()
       }
-      tags {
-        "$MoreTags.NET_PEER_IP" { it == null || it == "127.0.0.1" } // Optional
-        "$MoreTags.NET_PEER_PORT" Long
-        "$Tags.HTTP_STATUS" endpoint.status
-        "$Tags.HTTP_METHOD" method
-        "$Tags.HTTP_URL" { it == "${endpoint.resolve(address)}" || it == "${endpoint.resolveWithoutFragment(address)}" }
-        "servlet.context" "/$context"
-        "servlet.path" endpoint.path
-        "span.origin.type" { it.startsWith("TestServlets\$") || it == DefaultServlet.name }
-        if (endpoint.errored) {
-          "error.msg" { it == null || it == EXCEPTION.body }
-          "error.type" { it == null || it == Exception.name }
-          "error.stack" { it == null || it instanceof String }
-        }
-        if (endpoint.query) {
-          "$MoreTags.HTTP_QUERY" endpoint.query
-        }
+      if (endpoint == EXCEPTION) {
+        errorEvent(Exception, EXCEPTION.body)
+      }
+      attributes {
+        "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+        "${SemanticAttributes.NET_PEER_PORT.key()}" Long
+        "${SemanticAttributes.HTTP_STATUS_CODE.key()}" endpoint.status
+        "${SemanticAttributes.HTTP_METHOD.key()}" method
+        "${SemanticAttributes.HTTP_URL.key()}" { it == "${endpoint.resolve(address)}" || it == "${endpoint.resolveWithoutFragment(address)}" }
+        "${SemanticAttributes.HTTP_FLAVOR.key()}" "HTTP/1.1"
+        "${SemanticAttributes.HTTP_USER_AGENT.key()}" TEST_USER_AGENT
+        "${SemanticAttributes.HTTP_CLIENT_IP.key()}" TEST_CLIENT_IP
       }
     }
   }

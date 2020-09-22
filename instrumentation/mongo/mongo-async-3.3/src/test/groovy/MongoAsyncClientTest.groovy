@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
+import static io.opentelemetry.trace.Span.Kind.CLIENT
+
 import com.mongodb.ConnectionString
 import com.mongodb.async.SingleResultCallback
 import com.mongodb.async.client.MongoClient
@@ -23,21 +27,16 @@ import com.mongodb.async.client.MongoDatabase
 import com.mongodb.client.result.DeleteResult
 import com.mongodb.client.result.UpdateResult
 import com.mongodb.connection.ClusterSettings
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
 import io.opentelemetry.auto.test.asserts.TraceAssert
 import io.opentelemetry.sdk.trace.data.SpanData
+import io.opentelemetry.trace.attributes.SemanticAttributes
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CountDownLatch
 import org.bson.BsonDocument
 import org.bson.BsonString
 import org.bson.Document
 import spock.lang.Shared
 import spock.lang.Timeout
-
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CountDownLatch
-
-import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
-import static io.opentelemetry.trace.Span.Kind.CLIENT
 
 @Timeout(10)
 class MongoAsyncClientTest extends MongoBaseTest {
@@ -324,14 +323,14 @@ class MongoAsyncClientTest extends MongoBaseTest {
       } else {
         childOf((SpanData) parentSpan)
       }
-      tags {
-        "$MoreTags.NET_PEER_NAME" "localhost"
-        "$MoreTags.NET_PEER_IP" "127.0.0.1"
-        "$MoreTags.NET_PEER_PORT" port
-        "$Tags.DB_URL" "mongodb://localhost:" + port
-        "$Tags.DB_STATEMENT" statementEval
-        "$Tags.DB_TYPE" "mongo"
-        "$Tags.DB_INSTANCE" instance
+      attributes {
+        "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
+        "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+        "${SemanticAttributes.NET_PEER_PORT.key()}" port
+        "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "mongodb://localhost:" + port
+        "${SemanticAttributes.DB_STATEMENT.key()}" statementEval
+        "${SemanticAttributes.DB_SYSTEM.key()}" "mongodb"
+        "${SemanticAttributes.DB_NAME.key()}" instance
       }
     }
   }

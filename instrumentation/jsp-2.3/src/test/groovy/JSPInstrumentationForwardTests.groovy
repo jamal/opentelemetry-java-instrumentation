@@ -13,23 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.opentelemetry.trace.Span.Kind.SERVER
+
 import com.google.common.io.Files
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
 import io.opentelemetry.auto.test.AgentTestRunner
 import io.opentelemetry.auto.test.utils.OkHttpUtils
 import io.opentelemetry.auto.test.utils.PortUtils
+import io.opentelemetry.trace.attributes.SemanticAttributes
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import org.apache.catalina.Context
 import org.apache.catalina.startup.Tomcat
 import org.apache.jasper.JasperException
-import org.eclipse.jetty.http.HttpStatus
 import spock.lang.Shared
 import spock.lang.Unroll
-
-import static io.opentelemetry.trace.Span.Kind.SERVER
 
 class JSPInstrumentationForwardTests extends AgentTestRunner {
 
@@ -107,22 +106,22 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           operationName expectedOperationName()
           spanKind SERVER
           errored false
-          tags {
-            "$MoreTags.NET_PEER_IP" "127.0.0.1"
-            "$MoreTags.NET_PEER_PORT" Long
-            "$Tags.HTTP_URL" "http://localhost:$port/$jspWebappContext/$forwardFromFileName"
-            "$Tags.HTTP_METHOD" "GET"
-            "$Tags.HTTP_STATUS" 200
-            "span.origin.type" "org.apache.catalina.core.ApplicationFilterChain"
-            "servlet.context" "/$jspWebappContext"
-            "servlet.path" "/$forwardFromFileName"
+          attributes {
+            "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" Long
+            "${SemanticAttributes.HTTP_URL.key()}" "http://localhost:$port/$jspWebappContext/$forwardFromFileName"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
+            "${SemanticAttributes.HTTP_STATUS_CODE.key()}" 200
+            "${SemanticAttributes.HTTP_FLAVOR.key()}" "HTTP/1.1"
+            "${SemanticAttributes.HTTP_USER_AGENT.key()}" String
+            "${SemanticAttributes.HTTP_CLIENT_IP.key()}" "127.0.0.1"
           }
         }
         span(1) {
           childOf span(0)
           operationName "Compile /$forwardFromFileName"
           errored false
-          tags {
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.classFQCN" "org.apache.jsp.$jspForwardFromClassPrefix$jspForwardFromClassName"
             "jsp.compiler" "org.apache.jasper.compiler.JDTCompiler"
@@ -132,8 +131,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(0)
           operationName "Render /$forwardFromFileName"
           errored false
-          tags {
-            "span.origin.type" jspForwardFromClassName
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.requestURL" reqUrl
           }
@@ -142,7 +140,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(2)
           operationName "Compile /$forwardDestFileName"
           errored false
-          tags {
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.classFQCN" "org.apache.jsp.$jspForwardDestClassPrefix$jspForwardDestClassName"
             "jsp.compiler" "org.apache.jasper.compiler.JDTCompiler"
@@ -152,8 +150,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(2)
           operationName "Render /$forwardDestFileName"
           errored false
-          tags {
-            "span.origin.type" jspForwardDestClassName
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.forwardOrigin" "/$forwardFromFileName"
             "jsp.requestURL" baseUrl + "/$forwardDestFileName"
@@ -161,7 +158,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
         }
       }
     }
-    res.code() == HttpStatus.OK_200
+    res.code() == 200
 
     cleanup:
     res.close()
@@ -188,22 +185,22 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           operationName expectedOperationName()
           spanKind SERVER
           errored false
-          tags {
-            "$MoreTags.NET_PEER_IP" "127.0.0.1"
-            "$MoreTags.NET_PEER_PORT" Long
-            "$Tags.HTTP_URL" "http://localhost:$port/$jspWebappContext/forwards/forwardToHtml.jsp"
-            "$Tags.HTTP_METHOD" "GET"
-            "$Tags.HTTP_STATUS" 200
-            "span.origin.type" "org.apache.catalina.core.ApplicationFilterChain"
-            "servlet.context" "/$jspWebappContext"
-            "servlet.path" "/forwards/forwardToHtml.jsp"
+          attributes {
+            "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" Long
+            "${SemanticAttributes.HTTP_URL.key()}" "http://localhost:$port/$jspWebappContext/forwards/forwardToHtml.jsp"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
+            "${SemanticAttributes.HTTP_STATUS_CODE.key()}" 200
+            "${SemanticAttributes.HTTP_FLAVOR.key()}" "HTTP/1.1"
+            "${SemanticAttributes.HTTP_USER_AGENT.key()}" String
+            "${SemanticAttributes.HTTP_CLIENT_IP.key()}" "127.0.0.1"
           }
         }
         span(1) {
           childOf span(0)
           operationName "Compile /forwards/forwardToHtml.jsp"
           errored false
-          tags {
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.classFQCN" "org.apache.jsp.forwards.forwardToHtml_jsp"
             "jsp.compiler" "org.apache.jasper.compiler.JDTCompiler"
@@ -213,15 +210,14 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(0)
           operationName "Render /forwards/forwardToHtml.jsp"
           errored false
-          tags {
-            "span.origin.type" "forwardToHtml_jsp"
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.requestURL" reqUrl
           }
         }
       }
     }
-    res.code() == HttpStatus.OK_200
+    res.code() == 200
 
     cleanup:
     res.close()
@@ -243,22 +239,22 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           operationName expectedOperationName()
           spanKind SERVER
           errored false
-          tags {
-            "$MoreTags.NET_PEER_IP" "127.0.0.1"
-            "$MoreTags.NET_PEER_PORT" Long
-            "$Tags.HTTP_URL" "http://localhost:$port/$jspWebappContext/forwards/forwardToIncludeMulti.jsp"
-            "$Tags.HTTP_METHOD" "GET"
-            "$Tags.HTTP_STATUS" 200
-            "span.origin.type" "org.apache.catalina.core.ApplicationFilterChain"
-            "servlet.context" "/$jspWebappContext"
-            "servlet.path" "/forwards/forwardToIncludeMulti.jsp"
+          attributes {
+            "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" Long
+            "${SemanticAttributes.HTTP_URL.key()}" "http://localhost:$port/$jspWebappContext/forwards/forwardToIncludeMulti.jsp"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
+            "${SemanticAttributes.HTTP_STATUS_CODE.key()}" 200
+            "${SemanticAttributes.HTTP_FLAVOR.key()}" "HTTP/1.1"
+            "${SemanticAttributes.HTTP_USER_AGENT.key()}" String
+            "${SemanticAttributes.HTTP_CLIENT_IP.key()}" "127.0.0.1"
           }
         }
         span(1) {
           childOf span(0)
           operationName "Compile /forwards/forwardToIncludeMulti.jsp"
           errored false
-          tags {
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.classFQCN" "org.apache.jsp.forwards.forwardToIncludeMulti_jsp"
             "jsp.compiler" "org.apache.jasper.compiler.JDTCompiler"
@@ -268,8 +264,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(0)
           operationName "Render /forwards/forwardToIncludeMulti.jsp"
           errored false
-          tags {
-            "span.origin.type" "forwardToIncludeMulti_jsp"
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.requestURL" reqUrl
           }
@@ -278,7 +273,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(2)
           operationName "Compile /includes/includeMulti.jsp"
           errored false
-          tags {
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.classFQCN" "org.apache.jsp.includes.includeMulti_jsp"
             "jsp.compiler" "org.apache.jasper.compiler.JDTCompiler"
@@ -288,8 +283,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(2)
           operationName "Render /includes/includeMulti.jsp"
           errored false
-          tags {
-            "span.origin.type" "includeMulti_jsp"
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.forwardOrigin" "/forwards/forwardToIncludeMulti.jsp"
             "jsp.requestURL" baseUrl + "/includes/includeMulti.jsp"
@@ -299,7 +293,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(4)
           operationName "Compile /common/javaLoopH2.jsp"
           errored false
-          tags {
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.classFQCN" "org.apache.jsp.common.javaLoopH2_jsp"
             "jsp.compiler" "org.apache.jasper.compiler.JDTCompiler"
@@ -309,8 +303,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(4)
           operationName "Render /common/javaLoopH2.jsp"
           errored false
-          tags {
-            "span.origin.type" "javaLoopH2_jsp"
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.forwardOrigin" "/forwards/forwardToIncludeMulti.jsp"
             "jsp.requestURL" baseUrl + "/includes/includeMulti.jsp"
@@ -320,7 +313,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(4)
           operationName "Compile /common/javaLoopH2.jsp"
           errored false
-          tags {
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.classFQCN" "org.apache.jsp.common.javaLoopH2_jsp"
             "jsp.compiler" "org.apache.jasper.compiler.JDTCompiler"
@@ -330,8 +323,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(4)
           operationName "Render /common/javaLoopH2.jsp"
           errored false
-          tags {
-            "span.origin.type" "javaLoopH2_jsp"
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.forwardOrigin" "/forwards/forwardToIncludeMulti.jsp"
             "jsp.requestURL" baseUrl + "/includes/includeMulti.jsp"
@@ -339,7 +331,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
         }
       }
     }
-    res.code() == HttpStatus.OK_200
+    res.code() == 200
 
     cleanup:
     res.close()
@@ -361,22 +353,22 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           operationName expectedOperationName()
           spanKind SERVER
           errored false
-          tags {
-            "$MoreTags.NET_PEER_IP" "127.0.0.1"
-            "$MoreTags.NET_PEER_PORT" Long
-            "$Tags.HTTP_URL" "http://localhost:$port/$jspWebappContext/forwards/forwardToJspForward.jsp"
-            "$Tags.HTTP_METHOD" "GET"
-            "$Tags.HTTP_STATUS" 200
-            "span.origin.type" "org.apache.catalina.core.ApplicationFilterChain"
-            "servlet.context" "/$jspWebappContext"
-            "servlet.path" "/forwards/forwardToJspForward.jsp"
+          attributes {
+            "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" Long
+            "${SemanticAttributes.HTTP_URL.key()}" "http://localhost:$port/$jspWebappContext/forwards/forwardToJspForward.jsp"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
+            "${SemanticAttributes.HTTP_STATUS_CODE.key()}" 200
+            "${SemanticAttributes.HTTP_FLAVOR.key()}" "HTTP/1.1"
+            "${SemanticAttributes.HTTP_USER_AGENT.key()}" String
+            "${SemanticAttributes.HTTP_CLIENT_IP.key()}" "127.0.0.1"
           }
         }
         span(1) {
           childOf span(0)
           operationName "Compile /forwards/forwardToJspForward.jsp"
           errored false
-          tags {
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.classFQCN" "org.apache.jsp.forwards.forwardToJspForward_jsp"
             "jsp.compiler" "org.apache.jasper.compiler.JDTCompiler"
@@ -386,8 +378,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(0)
           operationName "Render /forwards/forwardToJspForward.jsp"
           errored false
-          tags {
-            "span.origin.type" "forwardToJspForward_jsp"
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.requestURL" reqUrl
           }
@@ -396,7 +387,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(2)
           operationName "Compile /forwards/forwardToSimpleJava.jsp"
           errored false
-          tags {
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.classFQCN" "org.apache.jsp.forwards.forwardToSimpleJava_jsp"
             "jsp.compiler" "org.apache.jasper.compiler.JDTCompiler"
@@ -406,8 +397,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(2)
           operationName "Render /forwards/forwardToSimpleJava.jsp"
           errored false
-          tags {
-            "span.origin.type" "forwardToSimpleJava_jsp"
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.forwardOrigin" "/forwards/forwardToJspForward.jsp"
             "jsp.requestURL" baseUrl + "/forwards/forwardToSimpleJava.jsp"
@@ -417,7 +407,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(4)
           operationName "Compile /common/loop.jsp"
           errored false
-          tags {
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.classFQCN" "org.apache.jsp.common.loop_jsp"
             "jsp.compiler" "org.apache.jasper.compiler.JDTCompiler"
@@ -427,8 +417,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(4)
           operationName "Render /common/loop.jsp"
           errored false
-          tags {
-            "span.origin.type" "loop_jsp"
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.forwardOrigin" "/forwards/forwardToJspForward.jsp"
             "jsp.requestURL" baseUrl + "/common/loop.jsp"
@@ -436,7 +425,7 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
         }
       }
     }
-    res.code() == HttpStatus.OK_200
+    res.code() == 200
 
     cleanup:
     res.close()
@@ -458,23 +447,23 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           operationName expectedOperationName()
           spanKind SERVER
           errored true
-          tags {
-            "$MoreTags.NET_PEER_IP" "127.0.0.1"
-            "$MoreTags.NET_PEER_PORT" Long
-            "$Tags.HTTP_URL" "http://localhost:$port/$jspWebappContext/forwards/forwardToCompileError.jsp"
-            "$Tags.HTTP_METHOD" "GET"
-            "$Tags.HTTP_STATUS" 500
-            "span.origin.type" "org.apache.catalina.core.ApplicationFilterChain"
-            "servlet.context" "/$jspWebappContext"
-            "servlet.path" "/forwards/forwardToCompileError.jsp"
-            errorTags(JasperException, String)
+          errorEvent(JasperException, String)
+          attributes {
+            "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" Long
+            "${SemanticAttributes.HTTP_URL.key()}" "http://localhost:$port/$jspWebappContext/forwards/forwardToCompileError.jsp"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
+            "${SemanticAttributes.HTTP_STATUS_CODE.key()}" 500
+            "${SemanticAttributes.HTTP_FLAVOR.key()}" "HTTP/1.1"
+            "${SemanticAttributes.HTTP_USER_AGENT.key()}" String
+            "${SemanticAttributes.HTTP_CLIENT_IP.key()}" "127.0.0.1"
           }
         }
         span(1) {
           childOf span(0)
           operationName "Compile /forwards/forwardToCompileError.jsp"
           errored false
-          tags {
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.classFQCN" "org.apache.jsp.forwards.forwardToCompileError_jsp"
             "jsp.compiler" "org.apache.jasper.compiler.JDTCompiler"
@@ -484,27 +473,26 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(0)
           operationName "Render /forwards/forwardToCompileError.jsp"
           errored true
-          tags {
-            "span.origin.type" "forwardToCompileError_jsp"
+          errorEvent(JasperException, String)
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.requestURL" reqUrl
-            errorTags(JasperException, String)
           }
         }
         span(3) {
           childOf span(2)
           operationName "Compile /compileError.jsp"
           errored true
-          tags {
+          errorEvent(JasperException, String)
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.classFQCN" "org.apache.jsp.compileError_jsp"
             "jsp.compiler" "org.apache.jasper.compiler.JDTCompiler"
-            errorTags(JasperException, String)
           }
         }
       }
     }
-    res.code() == HttpStatus.INTERNAL_SERVER_ERROR_500
+    res.code() == 500
 
     cleanup:
     res.close()
@@ -525,23 +513,23 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           parent()
           operationName expectedOperationName()
           spanKind SERVER
-          errored false
-          tags {
-            "$MoreTags.NET_PEER_IP" "127.0.0.1"
-            "$MoreTags.NET_PEER_PORT" Long
-            "$Tags.HTTP_URL" "http://localhost:$port/$jspWebappContext/forwards/forwardToNonExistent.jsp"
-            "$Tags.HTTP_METHOD" "GET"
-            "$Tags.HTTP_STATUS" 404
-            "span.origin.type" "org.apache.catalina.core.ApplicationFilterChain"
-            "servlet.context" "/$jspWebappContext"
-            "servlet.path" "/forwards/forwardToNonExistent.jsp"
+          errored true
+          attributes {
+            "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" Long
+            "${SemanticAttributes.HTTP_URL.key()}" "http://localhost:$port/$jspWebappContext/forwards/forwardToNonExistent.jsp"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
+            "${SemanticAttributes.HTTP_STATUS_CODE.key()}" 404
+            "${SemanticAttributes.HTTP_FLAVOR.key()}" "HTTP/1.1"
+            "${SemanticAttributes.HTTP_USER_AGENT.key()}" String
+            "${SemanticAttributes.HTTP_CLIENT_IP.key()}" "127.0.0.1"
           }
         }
         span(1) {
           childOf span(0)
           operationName "Compile /forwards/forwardToNonExistent.jsp"
           errored false
-          tags {
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.classFQCN" "org.apache.jsp.forwards.forwardToNonExistent_jsp"
             "jsp.compiler" "org.apache.jasper.compiler.JDTCompiler"
@@ -551,15 +539,14 @@ class JSPInstrumentationForwardTests extends AgentTestRunner {
           childOf span(0)
           operationName "Render /forwards/forwardToNonExistent.jsp"
           errored false
-          tags {
-            "span.origin.type" "forwardToNonExistent_jsp"
+          attributes {
             "servlet.context" "/$jspWebappContext"
             "jsp.requestURL" reqUrl
           }
         }
       }
     }
-    res.code() == HttpStatus.NOT_FOUND_404
+    res.code() == 404
 
     cleanup:
     res.close()

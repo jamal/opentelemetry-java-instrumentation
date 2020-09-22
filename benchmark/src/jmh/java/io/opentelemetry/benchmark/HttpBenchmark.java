@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.opentelemetry.benchmark;
 
 import io.opentelemetry.benchmark.classes.HttpClass;
@@ -40,7 +41,7 @@ public class HttpBenchmark {
         while (!AbstractLifeCycle.STARTED.equals(jettyServer.getState())) {
           Thread.sleep(500);
         }
-      } catch (final Exception e) {
+      } catch (Exception e) {
         throw new RuntimeException(e);
       }
     }
@@ -49,7 +50,7 @@ public class HttpBenchmark {
     public void doTearDown() {
       try {
         jettyServer.stop();
-      } catch (final Exception e) {
+      } catch (Exception e) {
         e.printStackTrace();
       } finally {
         jettyServer.destroy();
@@ -61,14 +62,14 @@ public class HttpBenchmark {
   }
 
   @Benchmark
-  public void testMakingRequest(final BenchmarkState state) throws IOException {
+  public void testMakingRequest(BenchmarkState state) throws IOException {
     state.http.executeRequest();
   }
 
   @Fork(
       jvmArgsAppend = {
-        "-javaagent:/path/to/opentelemetry-java-instrumentation/java-agent/build/libs/opentelemetry-auto.jar",
-        "-Dota.exporter=logging"
+        "-javaagent:/path/to/opentelemetry-java-instrumentation/java-agent/build/libs/opentelemetry-javaagent.jar",
+        "-Dotel.exporter=logging"
       })
   public static class WithAgent extends ClassRetransformingBenchmark {}
 }

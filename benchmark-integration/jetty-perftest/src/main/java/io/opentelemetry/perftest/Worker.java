@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.opentelemetry.perftest;
 
 import static io.opentelemetry.trace.TracingContextUtils.currentContextWith;
@@ -25,20 +26,19 @@ import java.util.concurrent.TimeUnit;
 
 public class Worker {
 
-  private static final Tracer TRACER =
-      OpenTelemetry.getTracerProvider().get("io.opentelemetry.auto");
+  private static final Tracer TRACER = OpenTelemetry.getTracer("io.opentelemetry.auto");
 
   /** Simulate work for the give number of milliseconds. */
-  public static void doWork(final long workTimeMS) {
-    final Span span = TRACER.spanBuilder("work").startSpan();
-    try (final Scope scope = currentContextWith(span)) {
+  public static void doWork(long workTimeMS) {
+    Span span = TRACER.spanBuilder("work").startSpan();
+    try (Scope scope = currentContextWith(span)) {
       if (span != null) {
         span.setAttribute("work-time", workTimeMS);
         span.setAttribute("info", "interesting stuff");
         span.setAttribute("additionalInfo", "interesting stuff");
       }
 
-      final long doneTimestamp = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(workTimeMS);
+      long doneTimestamp = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(workTimeMS);
       while (System.nanoTime() < doneTimestamp) {
         // busy-wait to simulate work
       }

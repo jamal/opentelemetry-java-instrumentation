@@ -13,15 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import io.opentelemetry.auto.bootstrap.AgentClassLoader
-import io.opentelemetry.auto.bootstrap.instrumentation.decorator.HttpClientDecorator
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
-import io.opentelemetry.auto.test.AgentTestRunner
 
 import static io.opentelemetry.auto.test.utils.PortUtils.UNUSABLE_PORT
 import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
 import static io.opentelemetry.trace.Span.Kind.CLIENT
+
+import io.opentelemetry.auto.test.AgentTestRunner
+import io.opentelemetry.instrumentation.api.tracer.HttpClientTracer
+import io.opentelemetry.trace.attributes.SemanticAttributes
 
 class UrlConnectionTest extends AgentTestRunner {
 
@@ -45,21 +44,21 @@ class UrlConnectionTest extends AgentTestRunner {
           operationName "someTrace"
           parent()
           errored true
-          tags {
-            errorTags ConnectException, String
-          }
+          errorEvent ConnectException, String
         }
         span(1) {
           operationName expectedOperationName("GET")
           spanKind CLIENT
           childOf span(0)
           errored true
-          tags {
-            "$MoreTags.NET_PEER_NAME" "localhost"
-            "$MoreTags.NET_PEER_PORT" UNUSABLE_PORT
-            "$Tags.HTTP_URL" "$url/"
-            "$Tags.HTTP_METHOD" "GET"
-            errorTags ConnectException, String
+          errorEvent ConnectException, String
+          attributes {
+            "${SemanticAttributes.NET_TRANSPORT.key()}" "IP.TCP"
+            "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" UNUSABLE_PORT
+            "${SemanticAttributes.HTTP_URL.key()}" "$url"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
+            "${SemanticAttributes.HTTP_FLAVOR.key()}" "1.1"
           }
         }
       }
@@ -71,74 +70,7 @@ class UrlConnectionTest extends AgentTestRunner {
     url = new URI("$scheme://localhost:$UNUSABLE_PORT").toURL()
   }
 
-  def "trace request with connection failure to a local file with broken url path"() {
-    setup:
-    def url = new URI("file:/some-random-file%abc").toURL()
-
-    when:
-    runUnderTrace("someTrace") {
-      url.openConnection()
-    }
-
-    then:
-    thrown IllegalArgumentException
-
-    expect:
-    assertTraces(1) {
-      trace(0, 2) {
-        span(0) {
-          operationName "someTrace"
-          parent()
-          errored true
-          tags {
-            errorTags IllegalArgumentException, String
-          }
-        }
-        span(1) {
-          operationName "file.request"
-          spanKind CLIENT
-          childOf span(0)
-          errored true
-          tags {
-            "$MoreTags.NET_PEER_PORT" 80
-            // FIXME: These tags really make no sense for non-http connections, why do we set them?
-            "$Tags.HTTP_URL" "$url"
-            errorTags IllegalArgumentException, String
-          }
-        }
-      }
-    }
-  }
-
-  def "AgentClassloader ClassNotFoundException doesn't create span"() {
-    given:
-    ClassLoader agentLoader = new AgentClassLoader(null, null, null)
-    ClassLoader childLoader = new URLClassLoader(new URL[0], agentLoader)
-
-    when:
-    runUnderTrace("someTrace") {
-      childLoader.loadClass("io.opentelemetry.auto.doesnotexist")
-    }
-
-    then:
-    thrown ClassNotFoundException
-
-    expect:
-    assertTraces(1) {
-      trace(0, 1) {
-        span(0) {
-          operationName "someTrace"
-          parent()
-          errored true
-          tags {
-            errorTags ClassNotFoundException, String
-          }
-        }
-      }
-    }
-  }
-
   String expectedOperationName(String method) {
-    return method != null ? "HTTP $method" : HttpClientDecorator.DEFAULT_SPAN_NAME
+    return method != null ? "HTTP $method" : HttpClientTracer.DEFAULT_SPAN_NAME
   }
 }

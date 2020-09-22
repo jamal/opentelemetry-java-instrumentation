@@ -13,22 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import io.opentelemetry.auto.instrumentation.api.Tags
+
+import static io.opentelemetry.trace.Span.Kind.CLIENT
+import static io.opentelemetry.trace.Span.Kind.INTERNAL
+
 import io.opentelemetry.auto.test.AgentTestRunner
+import io.opentelemetry.trace.attributes.SemanticAttributes
+import java.sql.Connection
+import java.sql.DriverManager
+import java.sql.Statement
+import javax.persistence.ParameterMode
 import org.hibernate.Session
 import org.hibernate.SessionFactory
 import org.hibernate.cfg.Configuration
 import org.hibernate.exception.SQLGrammarException
 import org.hibernate.procedure.ProcedureCall
 import spock.lang.Shared
-
-import javax.persistence.ParameterMode
-import java.sql.Connection
-import java.sql.DriverManager
-import java.sql.Statement
-
-import static io.opentelemetry.trace.Span.Kind.CLIENT
-import static io.opentelemetry.trace.Span.Kind.INTERNAL
 
 class ProcedureCallTest extends AgentTestRunner {
 
@@ -85,34 +85,33 @@ class ProcedureCallTest extends AgentTestRunner {
           operationName "Session"
           spanKind INTERNAL
           parent()
-          tags {
+          attributes {
           }
         }
         span(1) {
           operationName "ProcedureCall.getOutputs TEST_PROC"
           spanKind INTERNAL
           childOf span(0)
-          tags {
+          attributes {
           }
         }
         span(2) {
           operationName "{call TEST_PROC()}"
           spanKind CLIENT
           childOf span(1)
-          tags {
-            "$Tags.DB_TYPE" "sql"
-            "$Tags.DB_INSTANCE" "test"
-            "$Tags.DB_USER" "sa"
-            "$Tags.DB_STATEMENT" "{call TEST_PROC()}"
-            "$Tags.DB_URL" "hsqldb:mem:"
-            "span.origin.type" "org.hsqldb.jdbc.JDBCCallableStatement"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "hsqldb"
+            "${SemanticAttributes.DB_NAME.key()}" "test"
+            "${SemanticAttributes.DB_USER.key()}" "sa"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "{call TEST_PROC()}"
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "hsqldb:mem:"
           }
         }
         span(3) {
           spanKind INTERNAL
           operationName "Transaction.commit"
           childOf span(0)
-          tags {
+          attributes {
           }
         }
       }
@@ -144,7 +143,7 @@ class ProcedureCallTest extends AgentTestRunner {
           operationName "Session"
           spanKind INTERNAL
           parent()
-          tags {
+          attributes {
           }
         }
         span(1) {
@@ -152,15 +151,13 @@ class ProcedureCallTest extends AgentTestRunner {
           spanKind INTERNAL
           childOf span(0)
           errored(true)
-          tags {
-            errorTags(SQLGrammarException, "could not prepare statement")
-          }
+          errorEvent(SQLGrammarException, "could not prepare statement")
         }
         span(2) {
           operationName "Transaction.commit"
           spanKind INTERNAL
           childOf span(0)
-          tags {
+          attributes {
           }
         }
       }

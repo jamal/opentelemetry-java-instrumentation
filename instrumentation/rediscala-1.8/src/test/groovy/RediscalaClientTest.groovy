@@ -13,10 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.opentelemetry.trace.Span.Kind.CLIENT
+
 import akka.actor.ActorSystem
-import io.opentelemetry.auto.instrumentation.api.Tags
 import io.opentelemetry.auto.test.AgentTestRunner
 import io.opentelemetry.auto.test.utils.PortUtils
+import io.opentelemetry.trace.attributes.SemanticAttributes
 import redis.ByteStringDeserializerDefault
 import redis.ByteStringSerializerLowPriority
 import redis.RedisClient
@@ -26,8 +29,6 @@ import scala.Option
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import spock.lang.Shared
-
-import static io.opentelemetry.trace.Span.Kind.CLIENT
 
 class RediscalaClientTest extends AgentTestRunner {
 
@@ -84,11 +85,11 @@ class RediscalaClientTest extends AgentTestRunner {
     assertTraces(1) {
       trace(0, 1) {
         span(0) {
-          operationName "redis.api.strings.Set"
+          operationName "Set"
           spanKind CLIENT
-          tags {
-            "$Tags.DB_TYPE" "redis"
-            "$Tags.DB_STATEMENT" "redis.api.strings.Set"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "Set"
           }
         }
       }
@@ -112,21 +113,21 @@ class RediscalaClientTest extends AgentTestRunner {
     assertTraces(2) {
       trace(0, 1) {
         span(0) {
-          operationName "redis.api.strings.Set"
+          operationName "Set"
           spanKind CLIENT
-          tags {
-            "$Tags.DB_TYPE" "redis"
-            "$Tags.DB_STATEMENT" "redis.api.strings.Set"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "Set"
           }
         }
       }
       trace(1, 1) {
         span(0) {
-          operationName "redis.api.strings.Get"
+          operationName "Get"
           spanKind CLIENT
-          tags {
-            "$Tags.DB_TYPE" "redis"
-            "$Tags.DB_STATEMENT" "redis.api.strings.Get"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "Get"
           }
         }
       }

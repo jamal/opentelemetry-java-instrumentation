@@ -13,6 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.opentelemetry.auto.test.utils.TraceUtils.basicSpan
+import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
+import static io.opentelemetry.trace.Span.Kind.CLIENT
+import static io.opentelemetry.trace.Span.Kind.SERVER
+
 import example.GreeterGrpc
 import example.Helloworld
 import io.grpc.BindableService
@@ -23,17 +29,11 @@ import io.grpc.ServerBuilder
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.StreamObserver
-import io.opentelemetry.auto.common.exec.CommonTaskExecutor
-import io.opentelemetry.auto.instrumentation.api.MoreTags
 import io.opentelemetry.auto.test.AgentTestRunner
 import io.opentelemetry.auto.test.utils.PortUtils
-
+import io.opentelemetry.instrumentation.auto.grpc.common.GrpcHelper
+import io.opentelemetry.trace.attributes.SemanticAttributes
 import java.util.concurrent.TimeUnit
-
-import static io.opentelemetry.auto.test.utils.TraceUtils.basicSpan
-import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
-import static io.opentelemetry.trace.Span.Kind.CLIENT
-import static io.opentelemetry.trace.Span.Kind.SERVER
 
 class GrpcTest extends AgentTestRunner {
 
@@ -44,14 +44,8 @@ class GrpcTest extends AgentTestRunner {
       void sayHello(
         final Helloworld.Request req, final StreamObserver<Helloworld.Response> responseObserver) {
         final Helloworld.Response reply = Helloworld.Response.newBuilder().setMessage("Hello $req.name").build()
-        CommonTaskExecutor.INSTANCE.execute {
-          if (!testTracer.getCurrentSpan().getContext().isValid()) {
-            responseObserver.onError(new IllegalStateException("no active span"))
-          } else {
-            responseObserver.onNext(reply)
-            responseObserver.onCompleted()
-          }
-        }
+        responseObserver.onNext(reply)
+        responseObserver.onCompleted()
       }
     }
     def port = PortUtils.randomOpenPort()
@@ -83,6 +77,7 @@ class GrpcTest extends AgentTestRunner {
           spanKind CLIENT
           childOf span(0)
           errored false
+          status(io.opentelemetry.trace.Status.OK)
           event(0) {
             eventName "message"
             attributes {
@@ -90,11 +85,12 @@ class GrpcTest extends AgentTestRunner {
               "message.id" 1
             }
           }
-          tags {
-            "$MoreTags.RPC_SERVICE" "Greeter"
-            "$MoreTags.NET_PEER_NAME" "localhost"
-            "$MoreTags.NET_PEER_PORT" port
-            "status.code" "OK"
+          attributes {
+            "${SemanticAttributes.RPC_SYSTEM.key()}" "grpc"
+            "${SemanticAttributes.RPC_SERVICE.key()}" "example.Greeter"
+            "${SemanticAttributes.RPC_METHOD.key()}" "SayHello"
+            "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" port
           }
         }
         span(2) {
@@ -102,6 +98,7 @@ class GrpcTest extends AgentTestRunner {
           spanKind SERVER
           childOf span(1)
           errored false
+          status(io.opentelemetry.trace.Status.OK)
           event(0) {
             eventName "message"
             attributes {
@@ -109,11 +106,12 @@ class GrpcTest extends AgentTestRunner {
               "message.id" 1
             }
           }
-          tags {
-            "$MoreTags.RPC_SERVICE" "Greeter"
-            "$MoreTags.NET_PEER_IP" "127.0.0.1"
-            "$MoreTags.NET_PEER_PORT" Long
-            "status.code" "OK"
+          attributes {
+            "${SemanticAttributes.RPC_SYSTEM.key()}" "grpc"
+            "${SemanticAttributes.RPC_SERVICE.key()}" "example.Greeter"
+            "${SemanticAttributes.RPC_METHOD.key()}" "SayHello"
+            "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" Long
           }
         }
       }
@@ -129,7 +127,7 @@ class GrpcTest extends AgentTestRunner {
 
   def "test error - #name"() {
     setup:
-    def error = status.asException()
+    def error = grpcStatus.asException()
     BindableService greeter = new GreeterGrpc.GreeterImplBase() {
       @Override
       void sayHello(
@@ -163,12 +161,13 @@ class GrpcTest extends AgentTestRunner {
           spanKind CLIENT
           parent()
           errored true
-          tags {
-            "$MoreTags.RPC_SERVICE" "Greeter"
-            "status.code" "${status.code.name()}"
-            "status.description" description
-            "$MoreTags.NET_PEER_NAME" "localhost"
-            "$MoreTags.NET_PEER_PORT" port
+          status(GrpcHelper.statusFromGrpcStatus(grpcStatus))
+          attributes {
+            "${SemanticAttributes.RPC_SYSTEM.key()}" "grpc"
+            "${SemanticAttributes.RPC_SERVICE.key()}" "example.Greeter"
+            "${SemanticAttributes.RPC_METHOD.key()}" "SayHello"
+            "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" port
           }
         }
         span(1) {
@@ -176,6 +175,7 @@ class GrpcTest extends AgentTestRunner {
           spanKind SERVER
           childOf span(0)
           errored true
+          status(GrpcHelper.statusFromGrpcStatus(grpcStatus))
           event(0) {
             eventName "message"
             attributes {
@@ -183,15 +183,15 @@ class GrpcTest extends AgentTestRunner {
               "message.id" 1
             }
           }
-          tags {
-            "$MoreTags.RPC_SERVICE" "Greeter"
-            "status.code" "${status.code.name()}"
-            "status.description" description
-            "$MoreTags.NET_PEER_IP" "127.0.0.1"
-            "$MoreTags.NET_PEER_PORT" Long
-            if (status.cause != null) {
-              errorTags status.cause.class, status.cause.message
-            }
+          if (grpcStatus.cause != null) {
+            errorEvent grpcStatus.cause.class, grpcStatus.cause.message, 1
+          }
+          attributes {
+            "${SemanticAttributes.RPC_SYSTEM.key()}" "grpc"
+            "${SemanticAttributes.RPC_SERVICE.key()}" "example.Greeter"
+            "${SemanticAttributes.RPC_METHOD.key()}" "SayHello"
+            "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" Long
           }
         }
       }
@@ -202,18 +202,18 @@ class GrpcTest extends AgentTestRunner {
     server?.shutdownNow()?.awaitTermination()
 
     where:
-    name                          | status                                                                 | description
-    "Runtime - cause"             | Status.UNKNOWN.withCause(new RuntimeException("some error"))           | null
-    "Status - cause"              | Status.PERMISSION_DENIED.withCause(new RuntimeException("some error")) | null
-    "StatusRuntime - cause"       | Status.UNIMPLEMENTED.withCause(new RuntimeException("some error"))     | null
-    "Runtime - description"       | Status.UNKNOWN.withDescription("some description")                     | "some description"
-    "Status - description"        | Status.PERMISSION_DENIED.withDescription("some description")           | "some description"
-    "StatusRuntime - description" | Status.UNIMPLEMENTED.withDescription("some description")               | "some description"
+    name                          | grpcStatus
+    "Runtime - cause"             | Status.UNKNOWN.withCause(new RuntimeException("some error"))
+    "Status - cause"              | Status.PERMISSION_DENIED.withCause(new RuntimeException("some error"))
+    "StatusRuntime - cause"       | Status.UNIMPLEMENTED.withCause(new RuntimeException("some error"))
+    "Runtime - description"       | Status.UNKNOWN.withDescription("some description")
+    "Status - description"        | Status.PERMISSION_DENIED.withDescription("some description")
+    "StatusRuntime - description" | Status.UNIMPLEMENTED.withDescription("some description")
   }
 
   def "test error thrown - #name"() {
     setup:
-    def error = status.asRuntimeException()
+    def error = grpcStatus.asRuntimeException()
     BindableService greeter = new GreeterGrpc.GreeterImplBase() {
       @Override
       void sayHello(
@@ -247,11 +247,15 @@ class GrpcTest extends AgentTestRunner {
           spanKind CLIENT
           parent()
           errored true
-          tags {
-            "$MoreTags.RPC_SERVICE" "Greeter"
-            "status.code" "UNKNOWN"
-            "$MoreTags.NET_PEER_NAME" "localhost"
-            "$MoreTags.NET_PEER_PORT" Long
+          // NB: Exceptions thrown on the server don't appear to be propagated to the client, at
+          // least for the version we test against.
+          status(io.opentelemetry.trace.Status.UNKNOWN)
+          attributes {
+            "${SemanticAttributes.RPC_SYSTEM.key()}" "grpc"
+            "${SemanticAttributes.RPC_SERVICE.key()}" "example.Greeter"
+            "${SemanticAttributes.RPC_METHOD.key()}" "SayHello"
+            "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" Long
           }
         }
         span(1) {
@@ -259,6 +263,7 @@ class GrpcTest extends AgentTestRunner {
           spanKind SERVER
           childOf span(0)
           errored true
+          status(GrpcHelper.statusFromGrpcStatus(grpcStatus))
           event(0) {
             eventName "message"
             attributes {
@@ -266,11 +271,15 @@ class GrpcTest extends AgentTestRunner {
               "message.id" 1
             }
           }
-          tags {
-            "$MoreTags.RPC_SERVICE" "Greeter"
-            "$MoreTags.NET_PEER_IP" "127.0.0.1"
-            "$MoreTags.NET_PEER_PORT" Long
-            errorTags error.class, error.message
+          if (grpcStatus.cause != null) {
+            errorEvent grpcStatus.cause.class, grpcStatus.cause.message, 1
+          }
+          attributes {
+            "${SemanticAttributes.RPC_SYSTEM.key()}" "grpc"
+            "${SemanticAttributes.RPC_SERVICE.key()}" "example.Greeter"
+            "${SemanticAttributes.RPC_METHOD.key()}" "SayHello"
+            "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" Long
           }
         }
       }
@@ -281,7 +290,7 @@ class GrpcTest extends AgentTestRunner {
     server?.shutdownNow()?.awaitTermination()
 
     where:
-    name                          | status
+    name                          | grpcStatus
     "Runtime - cause"             | Status.UNKNOWN.withCause(new RuntimeException("some error"))
     "Status - cause"              | Status.PERMISSION_DENIED.withCause(new RuntimeException("some error"))
     "StatusRuntime - cause"       | Status.UNIMPLEMENTED.withCause(new RuntimeException("some error"))

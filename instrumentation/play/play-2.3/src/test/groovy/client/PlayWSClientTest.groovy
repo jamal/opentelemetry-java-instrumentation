@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package client
 
 import io.opentelemetry.auto.test.base.HttpClientTest
+import java.util.concurrent.TimeUnit
 import play.GlobalSettings
 import play.libs.ws.WS
 import play.test.FakeApplication
 import play.test.Helpers
 import spock.lang.Shared
-
-import java.util.concurrent.TimeUnit
 
 class PlayWSClientTest extends HttpClientTest {
   @Shared
@@ -30,8 +30,7 @@ class PlayWSClientTest extends HttpClientTest {
     new File("."),
     FakeApplication.getClassLoader(),
     [
-      "ws.timeout.connection": CONNECT_TIMEOUT_MS,
-      "ws.timeout.request"   : READ_TIMEOUT_MS
+      "ws.timeout.connection": CONNECT_TIMEOUT_MS
     ],
     Collections.emptyList(),
     new GlobalSettings()
@@ -63,6 +62,11 @@ class PlayWSClientTest extends HttpClientTest {
       it.status
     })
     return status.get(1, TimeUnit.SECONDS)
+  }
+
+  @Override
+  String userAgent() {
+    return "NING"
   }
 
   @Override

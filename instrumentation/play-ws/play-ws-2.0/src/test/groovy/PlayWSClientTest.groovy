@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import java.util.concurrent.TimeUnit
 import play.libs.ws.StandaloneWSClient
 import play.libs.ws.StandaloneWSRequest
 import play.libs.ws.StandaloneWSResponse
@@ -24,8 +26,6 @@ import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 import spock.lang.Shared
 import spock.lang.Timeout
-
-import java.util.concurrent.TimeUnit
 
 @Timeout(5)
 class PlayJavaWSClientTest extends PlayWSClientTestBase {

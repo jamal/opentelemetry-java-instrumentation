@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import groovy.lang.Closure;
 import io.opentelemetry.auto.test.base.HttpServerTest;
 import javax.servlet.annotation.WebServlet;
@@ -25,7 +26,7 @@ public class TestServlets {
   @WebServlet("/success")
   public static class Success extends HttpServlet {
     @Override
-    protected void service(final HttpServletRequest req, final HttpServletResponse resp) {
+    protected void service(HttpServletRequest req, final HttpServletResponse resp) {
       final HttpServerTest.ServerEndpoint endpoint =
           HttpServerTest.ServerEndpoint.forPath(req.getServletPath());
       HttpServerTest.controller(
@@ -63,7 +64,7 @@ public class TestServlets {
   @WebServlet("/redirect")
   public static class Redirect extends HttpServlet {
     @Override
-    protected void service(final HttpServletRequest req, final HttpServletResponse resp) {
+    protected void service(HttpServletRequest req, final HttpServletResponse resp) {
       final HttpServerTest.ServerEndpoint endpoint =
           HttpServerTest.ServerEndpoint.forPath(req.getServletPath());
       HttpServerTest.controller(
@@ -80,7 +81,7 @@ public class TestServlets {
   @WebServlet("/error-status")
   public static class Error extends HttpServlet {
     @Override
-    protected void service(final HttpServletRequest req, final HttpServletResponse resp) {
+    protected void service(HttpServletRequest req, final HttpServletResponse resp) {
       final HttpServerTest.ServerEndpoint endpoint =
           HttpServerTest.ServerEndpoint.forPath(req.getServletPath());
       HttpServerTest.controller(
@@ -98,7 +99,7 @@ public class TestServlets {
   @WebServlet("/exception")
   public static class ExceptionServlet extends HttpServlet {
     @Override
-    protected void service(final HttpServletRequest req, final HttpServletResponse resp) {
+    protected void service(HttpServletRequest req, HttpServletResponse resp) {
       final HttpServerTest.ServerEndpoint endpoint =
           HttpServerTest.ServerEndpoint.forPath(req.getServletPath());
       HttpServerTest.controller(

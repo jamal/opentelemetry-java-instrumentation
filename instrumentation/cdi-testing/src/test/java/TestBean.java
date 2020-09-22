@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 public class TestBean {
 
   private String someField;
@@ -21,7 +22,7 @@ public class TestBean {
     return someField;
   }
 
-  public void setSomeField(final String someField) {
+  public void setSomeField(String someField) {
     this.someField = someField;
   }
 }

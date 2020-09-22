@@ -13,19 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package server
 
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
+import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.EXCEPTION
+import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCCESS
+import static io.opentelemetry.trace.Span.Kind.INTERNAL
+
 import io.opentelemetry.auto.test.asserts.TraceAssert
 import io.opentelemetry.auto.test.base.HttpServerTest
 import io.opentelemetry.sdk.trace.data.SpanData
 import play.api.test.TestServer
-
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.ERROR
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.EXCEPTION
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCCESS
-import static io.opentelemetry.trace.Span.Kind.INTERNAL
 
 class PlayServerTest extends HttpServerTest<TestServer> {
   @Override
@@ -40,7 +38,6 @@ class PlayServerTest extends HttpServerTest<TestServer> {
     server.stop()
   }
 
-  // We don't have instrumentation for this version of netty yet
   @Override
   boolean hasHandlerSpan() {
     true
@@ -51,20 +48,16 @@ class PlayServerTest extends HttpServerTest<TestServer> {
     trace.span(index) {
       operationName "play.request"
       spanKind INTERNAL
-      errored endpoint == ERROR || endpoint == EXCEPTION
-      childOf((SpanData) parent)
-      tags {
-        "$MoreTags.NET_PEER_IP" { it == null || it == "127.0.0.1" } // Optional
-        "$Tags.HTTP_URL" String
-        "$Tags.HTTP_METHOD" String
-        "$Tags.HTTP_STATUS" Long
-        if (endpoint == EXCEPTION) {
-          errorTags(Exception, EXCEPTION.body)
-        }
-        if (endpoint.query) {
-          "$MoreTags.HTTP_QUERY" endpoint.query
-        }
+      errored endpoint == EXCEPTION
+      if (endpoint == EXCEPTION) {
+        errorEvent(Exception, EXCEPTION.body)
       }
+      childOf((SpanData) parent)
     }
+  }
+
+  @Override
+  String expectedServerSpanName(String method, ServerEndpoint endpoint) {
+    return "netty.request"
   }
 }

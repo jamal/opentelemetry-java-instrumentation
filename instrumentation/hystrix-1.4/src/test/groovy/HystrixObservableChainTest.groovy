@@ -13,18 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import com.netflix.hystrix.HystrixObservableCommand
-import io.opentelemetry.auto.test.AgentTestRunner
-import rx.Observable
-import rx.schedulers.Schedulers
 
 import static com.netflix.hystrix.HystrixCommandGroupKey.Factory.asKey
 import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
+
+import com.netflix.hystrix.HystrixObservableCommand
+import io.opentelemetry.auto.test.AgentTestRunner
+import io.opentelemetry.auto.test.utils.ConfigUtils
+import rx.Observable
+import rx.schedulers.Schedulers
 
 class HystrixObservableChainTest extends AgentTestRunner {
   static {
     // Disable so failure testing below doesn't inadvertently change the behavior.
     System.setProperty("hystrix.command.default.circuitBreaker.enabled", "false")
+    ConfigUtils.updateConfig {
+      System.setProperty("otel.hystrix.tags.enabled", "true")
+    }
 
     // Uncomment for debugging:
     // System.setProperty("hystrix.command.default.execution.timeout.enabled", "false")
@@ -80,14 +85,14 @@ class HystrixObservableChainTest extends AgentTestRunner {
           operationName "parent"
           parent()
           errored false
-          tags {
+          attributes {
           }
         }
         span(1) {
           operationName "ExampleGroup.HystrixObservableChainTest\$1.execute"
           childOf span(0)
           errored false
-          tags {
+          attributes {
             "hystrix.command" "HystrixObservableChainTest\$1"
             "hystrix.group" "ExampleGroup"
             "hystrix.circuit-open" false
@@ -97,14 +102,14 @@ class HystrixObservableChainTest extends AgentTestRunner {
           operationName "tracedMethod"
           childOf span(1)
           errored false
-          tags {
+          attributes {
           }
         }
         span(3) {
           operationName "OtherGroup.HystrixObservableChainTest\$2.execute"
           childOf span(1)
           errored false
-          tags {
+          attributes {
             "hystrix.command" "HystrixObservableChainTest\$2"
             "hystrix.group" "OtherGroup"
             "hystrix.circuit-open" false
@@ -114,7 +119,7 @@ class HystrixObservableChainTest extends AgentTestRunner {
           operationName "anotherTracedMethod"
           childOf span(3)
           errored false
-          tags {
+          attributes {
           }
         }
       }

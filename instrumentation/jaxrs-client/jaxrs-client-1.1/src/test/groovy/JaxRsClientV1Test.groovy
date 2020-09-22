@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import com.sun.jersey.api.client.Client
 import com.sun.jersey.api.client.ClientResponse
 import com.sun.jersey.api.client.filter.GZIPContentEncodingFilter
@@ -29,7 +30,6 @@ class JaxRsClientV1Test extends HttpClientTest {
 
   def setupSpec() {
     client.setConnectTimeout(CONNECT_TIMEOUT_MS)
-    client.setReadTimeout(READ_TIMEOUT_MS)
     // Add filters to ensure spans aren't duplicated.
     client.addFilter(new LoggingFilter())
     client.addFilter(new GZIPContentEncodingFilter())

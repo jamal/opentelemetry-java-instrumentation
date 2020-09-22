@@ -13,8 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import io.opentelemetry.auto.instrumentation.api.Tags
+
+import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
+import static io.opentelemetry.trace.Span.Kind.CLIENT
+import static org.elasticsearch.cluster.ClusterName.CLUSTER_NAME_SETTING
+
 import io.opentelemetry.auto.test.AgentTestRunner
+import io.opentelemetry.trace.attributes.SemanticAttributes
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest
 import org.elasticsearch.common.io.FileSystemUtils
 import org.elasticsearch.common.settings.Settings
@@ -24,10 +29,6 @@ import org.elasticsearch.node.InternalSettingsPreparer
 import org.elasticsearch.node.Node
 import org.elasticsearch.transport.Netty3Plugin
 import spock.lang.Shared
-
-import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
-import static io.opentelemetry.trace.Span.Kind.CLIENT
-import static org.elasticsearch.cluster.ClusterName.CLUSTER_NAME_SETTING
 
 class Elasticsearch53NodeClientTest extends AgentTestRunner {
   public static final long TIMEOUT = 10000; // 10 seconds
@@ -87,8 +88,8 @@ class Elasticsearch53NodeClientTest extends AgentTestRunner {
         span(0) {
           operationName "ClusterHealthAction"
           spanKind CLIENT
-          tags {
-            "$Tags.DB_TYPE" "elasticsearch"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "ClusterHealthAction"
             "elasticsearch.request" "ClusterHealthRequest"
           }
@@ -111,12 +112,12 @@ class Elasticsearch53NodeClientTest extends AgentTestRunner {
           operationName "GetAction"
           spanKind CLIENT
           errored true
-          tags {
-            "$Tags.DB_TYPE" "elasticsearch"
+          errorEvent IndexNotFoundException, "no such index"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "GetAction"
             "elasticsearch.request" "GetRequest"
             "elasticsearch.request.indices" indexName
-            errorTags IndexNotFoundException, "no such index"
           }
         }
       }
@@ -172,8 +173,8 @@ class Elasticsearch53NodeClientTest extends AgentTestRunner {
         span(0) {
           operationName "CreateIndexAction"
           spanKind CLIENT
-          tags {
-            "$Tags.DB_TYPE" "elasticsearch"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "CreateIndexAction"
             "elasticsearch.request" "CreateIndexRequest"
             "elasticsearch.request.indices" indexName
@@ -184,8 +185,8 @@ class Elasticsearch53NodeClientTest extends AgentTestRunner {
         span(0) {
           operationName "ClusterHealthAction"
           spanKind CLIENT
-          tags {
-            "$Tags.DB_TYPE" "elasticsearch"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "ClusterHealthAction"
             "elasticsearch.request" "ClusterHealthRequest"
           }
@@ -195,8 +196,8 @@ class Elasticsearch53NodeClientTest extends AgentTestRunner {
         span(0) {
           operationName "GetAction"
           spanKind CLIENT
-          tags {
-            "$Tags.DB_TYPE" "elasticsearch"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "GetAction"
             "elasticsearch.request" "GetRequest"
             "elasticsearch.request.indices" indexName
@@ -210,8 +211,8 @@ class Elasticsearch53NodeClientTest extends AgentTestRunner {
         span(0) {
           operationName "IndexAction"
           spanKind CLIENT
-          tags {
-            "$Tags.DB_TYPE" "elasticsearch"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "IndexAction"
             "elasticsearch.request" "IndexRequest"
             "elasticsearch.request.indices" indexName
@@ -227,8 +228,8 @@ class Elasticsearch53NodeClientTest extends AgentTestRunner {
           operationName "PutMappingAction"
           spanKind CLIENT
           childOf span(0)
-          tags {
-            "$Tags.DB_TYPE" "elasticsearch"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "PutMappingAction"
             "elasticsearch.request" "PutMappingRequest"
           }
@@ -238,8 +239,8 @@ class Elasticsearch53NodeClientTest extends AgentTestRunner {
         span(0) {
           operationName "GetAction"
           spanKind CLIENT
-          tags {
-            "$Tags.DB_TYPE" "elasticsearch"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "GetAction"
             "elasticsearch.request" "GetRequest"
             "elasticsearch.request.indices" indexName

@@ -13,14 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import com.google.api.client.http.HttpRequest
 import com.google.api.client.http.HttpResponse
-import spock.lang.Retry
 import spock.lang.Timeout
 
-@Retry(condition = { !invocation.method.name.contains('circular redirects') })
 @Timeout(5)
 class GoogleHttpClientAsyncTest extends AbstractGoogleHttpClientTest {
+  def setup() {
+    TEST_WRITER.clear()
+  }
+
   @Override
   HttpResponse executeRequest(HttpRequest request) {
     return request.executeAsync().get()

@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.opentelemetry.auto.test.utils.TraceUtils.basicSpan
+import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
+
 import io.dropwizard.views.View
 import io.dropwizard.views.freemarker.FreemarkerViewRenderer
 import io.dropwizard.views.mustache.MustacheViewRenderer
 import io.opentelemetry.auto.test.AgentTestRunner
-
 import java.nio.charset.StandardCharsets
-
-import static io.opentelemetry.auto.test.utils.TraceUtils.basicSpan
-import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
 
 class ViewRenderTest extends AgentTestRunner {
 
@@ -42,9 +42,6 @@ class ViewRenderTest extends AgentTestRunner {
         span(1) {
           operationName "Render $template"
           childOf span(0)
-          tags {
-            "span.origin.type" renderer.class.simpleName
-          }
         }
       }
     }

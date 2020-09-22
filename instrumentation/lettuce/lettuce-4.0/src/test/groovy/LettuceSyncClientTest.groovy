@@ -13,22 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.opentelemetry.trace.Span.Kind.CLIENT
+
 import com.lambdaworks.redis.ClientOptions
 import com.lambdaworks.redis.RedisClient
 import com.lambdaworks.redis.RedisConnectionException
 import com.lambdaworks.redis.api.StatefulConnection
 import com.lambdaworks.redis.api.sync.RedisCommands
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
 import io.opentelemetry.auto.test.AgentTestRunner
 import io.opentelemetry.auto.test.utils.PortUtils
+import io.opentelemetry.trace.attributes.SemanticAttributes
 import redis.embedded.RedisServer
 import spock.lang.Shared
 
-import static io.opentelemetry.trace.Span.Kind.CLIENT
-
 class LettuceSyncClientTest extends AgentTestRunner {
-  public static final String HOST = "127.0.0.1"
+  public static final String HOST = "localhost"
   public static final int DB_INDEX = 0
   // Disable autoreconnect so we do not get stray traces popping up on server shutdown
   public static final ClientOptions CLIENT_OPTIONS = new ClientOptions.Builder().autoReconnect(false).build()
@@ -111,10 +111,12 @@ class LettuceSyncClientTest extends AgentTestRunner {
           operationName "CONNECT"
           spanKind CLIENT
           errored false
-          tags {
-            "$MoreTags.NET_PEER_NAME" HOST
-            "$MoreTags.NET_PEER_PORT" port
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.NET_PEER_NAME.key()}" HOST
+            "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" port
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "CONNECT"
             "db.redis.dbIndex" 0
           }
         }
@@ -141,12 +143,14 @@ class LettuceSyncClientTest extends AgentTestRunner {
           operationName "CONNECT"
           spanKind CLIENT
           errored true
-          tags {
-            "$MoreTags.NET_PEER_NAME" HOST
-            "$MoreTags.NET_PEER_PORT" incorrectPort
-            "$Tags.DB_TYPE" "redis"
+          errorEvent RedisConnectionException, String
+          attributes {
+            "${SemanticAttributes.NET_PEER_NAME.key()}" HOST
+            "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" incorrectPort
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "CONNECT"
             "db.redis.dbIndex" 0
-            errorTags RedisConnectionException, String
           }
         }
       }
@@ -165,8 +169,9 @@ class LettuceSyncClientTest extends AgentTestRunner {
           operationName "SET"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "SET"
           }
         }
       }
@@ -185,8 +190,9 @@ class LettuceSyncClientTest extends AgentTestRunner {
           operationName "GET"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "GET"
           }
         }
       }
@@ -205,8 +211,9 @@ class LettuceSyncClientTest extends AgentTestRunner {
           operationName "GET"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "GET"
           }
         }
       }
@@ -225,8 +232,9 @@ class LettuceSyncClientTest extends AgentTestRunner {
           operationName "RANDOMKEY"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "RANDOMKEY"
           }
         }
       }
@@ -245,8 +253,9 @@ class LettuceSyncClientTest extends AgentTestRunner {
           operationName "LPUSH"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "LPUSH"
           }
         }
       }
@@ -265,8 +274,9 @@ class LettuceSyncClientTest extends AgentTestRunner {
           operationName "HMSET"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "HMSET"
           }
         }
       }
@@ -285,8 +295,9 @@ class LettuceSyncClientTest extends AgentTestRunner {
           operationName "HGETALL"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "HGETALL"
           }
         }
       }
@@ -304,8 +315,9 @@ class LettuceSyncClientTest extends AgentTestRunner {
           operationName "DEBUG"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "DEBUG"
           }
         }
       }
@@ -323,8 +335,9 @@ class LettuceSyncClientTest extends AgentTestRunner {
           operationName "SHUTDOWN"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "redis"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_STATEMENT.key()}" "SHUTDOWN"
           }
         }
       }

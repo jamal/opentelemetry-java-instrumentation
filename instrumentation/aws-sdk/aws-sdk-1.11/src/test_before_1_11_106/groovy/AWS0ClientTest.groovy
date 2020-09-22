@@ -13,6 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.opentelemetry.auto.test.server.http.TestHttpServer.httpServer
+import static io.opentelemetry.auto.test.utils.PortUtils.UNUSABLE_PORT
+import static io.opentelemetry.trace.Span.Kind.CLIENT
+
 import com.amazonaws.AmazonClientException
 import com.amazonaws.ClientConfiguration
 import com.amazonaws.Request
@@ -30,18 +35,12 @@ import com.amazonaws.services.rds.AmazonRDSClient
 import com.amazonaws.services.rds.model.DeleteOptionGroupRequest
 import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.S3ClientOptions
-import io.opentelemetry.auto.bootstrap.instrumentation.decorator.HttpClientDecorator
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
 import io.opentelemetry.auto.test.AgentTestRunner
+import io.opentelemetry.instrumentation.api.tracer.HttpClientTracer
+import io.opentelemetry.trace.attributes.SemanticAttributes
+import java.util.concurrent.atomic.AtomicReference
 import spock.lang.AutoCleanup
 import spock.lang.Shared
-
-import java.util.concurrent.atomic.AtomicReference
-
-import static io.opentelemetry.auto.test.server.http.TestHttpServer.httpServer
-import static io.opentelemetry.auto.test.utils.PortUtils.UNUSABLE_PORT
-import static io.opentelemetry.trace.Span.Kind.CLIENT
 
 class AWS0ClientTest extends AgentTestRunner {
 
@@ -115,17 +114,19 @@ class AWS0ClientTest extends AgentTestRunner {
           spanKind CLIENT
           errored false
           parent()
-          tags {
-            "$Tags.HTTP_URL" "$server.address/"
-            "$Tags.HTTP_METHOD" "$method"
-            "$Tags.HTTP_STATUS" 200
-            "$MoreTags.NET_PEER_PORT" server.address.port
-            "$MoreTags.NET_PEER_NAME" "localhost"
+          attributes {
+            "${SemanticAttributes.NET_TRANSPORT.key()}" "IP.TCP"
+            "${SemanticAttributes.HTTP_URL.key()}" "$server.address"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "$method"
+            "${SemanticAttributes.HTTP_STATUS_CODE.key()}" 200
+            "${SemanticAttributes.HTTP_FLAVOR.key()}" "1.1"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" server.address.port
+            "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
             "aws.service" { it.contains(service) }
             "aws.endpoint" "$server.address"
             "aws.operation" "${operation}Request"
             "aws.agent" "java-aws-sdk"
-            for (def addedTag : additionalTags) {
+            for (def addedTag : additionalAttributes) {
               "$addedTag.key" "$addedTag.value"
             }
           }
@@ -135,7 +136,7 @@ class AWS0ClientTest extends AgentTestRunner {
     server.lastRequest.headers.get("traceparent") == null
 
     where:
-    service | operation           | method | path                  | handlerCount | client                                                                      | additionalTags                    | call                                                                                                                                   | body
+    service | operation           | method | path                  | handlerCount | client                                                                      | additionalAttributes              | call                                                                                                                                   | body
     "S3"    | "CreateBucket"      | "PUT"  | "/testbucket/"        | 1            | new AmazonS3Client().withEndpoint("http://localhost:$server.address.port")  | ["aws.bucket.name": "testbucket"] | { client -> client.setS3ClientOptions(S3ClientOptions.builder().setPathStyleAccess(true).build()); client.createBucket("testbucket") } | ""
     "S3"    | "GetObject"         | "GET"  | "/someBucket/someKey" | 1            | new AmazonS3Client().withEndpoint("http://localhost:$server.address.port")  | ["aws.bucket.name": "someBucket"] | { client -> client.getObject("someBucket", "someKey") }                                                                                | ""
     "EC2"   | "AllocateAddress"   | "POST" | "/"                   | 4            | new AmazonEC2Client().withEndpoint("http://localhost:$server.address.port") | [:]                               | { client -> client.allocateAddress() }                                                                                                 | """
@@ -170,27 +171,29 @@ class AWS0ClientTest extends AgentTestRunner {
           operationName "$service.$operation"
           spanKind CLIENT
           errored true
+          errorEvent AmazonClientException, ~/Unable to execute HTTP request/
           parent()
-          tags {
-            "$Tags.HTTP_URL" "http://localhost:${UNUSABLE_PORT}/"
-            "$Tags.HTTP_METHOD" "$method"
-            "$MoreTags.NET_PEER_PORT" 61
-            "$MoreTags.NET_PEER_NAME" "localhost"
+          attributes {
+            "${SemanticAttributes.NET_TRANSPORT.key()}" "IP.TCP"
+            "${SemanticAttributes.HTTP_URL.key()}" "http://localhost:${UNUSABLE_PORT}"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "$method"
+            "${SemanticAttributes.HTTP_FLAVOR.key()}" "1.1"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" 61
+            "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
             "aws.service" { it.contains(service) }
             "aws.endpoint" "http://localhost:${UNUSABLE_PORT}"
             "aws.operation" "${operation}Request"
             "aws.agent" "java-aws-sdk"
-            for (def addedTag : additionalTags) {
+            for (def addedTag : additionalAttributes) {
               "$addedTag.key" "$addedTag.value"
             }
-            errorTags AmazonClientException, ~/Unable to execute HTTP request/
           }
         }
       }
     }
 
     where:
-    service | operation   | method | url                  | call                                                    | additionalTags                    | body | client
+    service | operation   | method | url                  | call                                                    | additionalAttributes              | body | client
     "S3"    | "GetObject" | "GET"  | "someBucket/someKey" | { client -> client.getObject("someBucket", "someKey") } | ["aws.bucket.name": "someBucket"] | ""   | new AmazonS3Client(CREDENTIALS_PROVIDER_CHAIN, new ClientConfiguration().withRetryPolicy(PredefinedRetryPolicies.getDefaultRetryPolicyWithCustomMaxRetries(0))).withEndpoint("http://localhost:${UNUSABLE_PORT}")
   }
 
@@ -216,17 +219,19 @@ class AWS0ClientTest extends AgentTestRunner {
           operationName "S3.GetObject"
           spanKind CLIENT
           errored true
+          errorEvent RuntimeException, "bad handler"
           parent()
-          tags {
-            "$Tags.HTTP_URL" "https://s3.amazonaws.com/"
-            "$Tags.HTTP_METHOD" "GET"
-            "$MoreTags.NET_PEER_NAME" "s3.amazonaws.com"
+          attributes {
+            "${SemanticAttributes.NET_TRANSPORT.key()}" "IP.TCP"
+            "${SemanticAttributes.HTTP_URL.key()}" "https://s3.amazonaws.com"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
+            "${SemanticAttributes.HTTP_FLAVOR.key()}" "1.1"
+            "${SemanticAttributes.NET_PEER_NAME.key()}" "s3.amazonaws.com"
             "aws.service" "Amazon S3"
             "aws.endpoint" "https://s3.amazonaws.com"
             "aws.operation" "GetObjectRequest"
             "aws.agent" "java-aws-sdk"
             "aws.bucket.name" "someBucket"
-            errorTags RuntimeException, "bad handler"
           }
         }
       }
@@ -260,18 +265,20 @@ class AWS0ClientTest extends AgentTestRunner {
           operationName "S3.GetObject"
           spanKind CLIENT
           errored true
+          errorEvent AmazonClientException, ~/Unable to execute HTTP request/
           parent()
-          tags {
-            "$Tags.HTTP_URL" "$server.address/"
-            "$Tags.HTTP_METHOD" "GET"
-            "$MoreTags.NET_PEER_PORT" server.address.port
-            "$MoreTags.NET_PEER_NAME" "localhost"
+          attributes {
+            "${SemanticAttributes.NET_TRANSPORT.key()}" "IP.TCP"
+            "${SemanticAttributes.HTTP_URL.key()}" "$server.address"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
+            "${SemanticAttributes.HTTP_FLAVOR.key()}" "1.1"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" server.address.port
+            "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
             "aws.service" "Amazon S3"
             "aws.endpoint" "http://localhost:$server.address.port"
             "aws.operation" "GetObjectRequest"
             "aws.agent" "java-aws-sdk"
             "aws.bucket.name" "someBucket"
-            errorTags AmazonClientException, ~/Unable to execute HTTP request/
           }
         }
       }
@@ -282,6 +289,6 @@ class AWS0ClientTest extends AgentTestRunner {
   }
 
   String expectedOperationName(String method) {
-    return method != null ? "HTTP $method" : HttpClientDecorator.DEFAULT_SPAN_NAME
+    return method != null ? "HTTP $method" : HttpClientTracer.DEFAULT_SPAN_NAME
   }
 }

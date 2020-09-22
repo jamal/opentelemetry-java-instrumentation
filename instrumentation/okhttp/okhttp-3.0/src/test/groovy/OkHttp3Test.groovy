@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import io.opentelemetry.auto.test.base.HttpClientTest
+import java.util.concurrent.TimeUnit
 import okhttp3.Headers
 import okhttp3.MediaType
 import okhttp3.OkHttpClient
@@ -22,15 +24,11 @@ import okhttp3.RequestBody
 import okhttp3.internal.http.HttpMethod
 import spock.lang.Timeout
 
-import java.util.concurrent.TimeUnit
-
 @Timeout(5)
 class OkHttp3Test extends HttpClientTest {
 
   def client = new OkHttpClient.Builder()
     .connectTimeout(CONNECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-    .readTimeout(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-    .writeTimeout(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
     .build()
 
   @Override

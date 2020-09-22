@@ -13,24 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import com.twitter.finatra.http.HttpServer
-import com.twitter.util.Await
-import com.twitter.util.Closable
-import com.twitter.util.Duration
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
-import io.opentelemetry.auto.test.asserts.TraceAssert
-import io.opentelemetry.auto.test.base.HttpServerTest
-import io.opentelemetry.sdk.trace.data.SpanData
 
-import java.util.concurrent.TimeoutException
-
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.ERROR
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.EXCEPTION
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.PATH_PARAM
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCCESS
 import static io.opentelemetry.trace.Span.Kind.INTERNAL
 import static io.opentelemetry.trace.Span.Kind.SERVER
+
+import com.twitter.finatra.http.HttpServer
+import com.twitter.util.Await
+import com.twitter.util.Closable
+import com.twitter.util.Duration
+import io.opentelemetry.auto.test.asserts.TraceAssert
+import io.opentelemetry.auto.test.base.HttpServerTest
+import io.opentelemetry.sdk.trace.data.SpanData
+import io.opentelemetry.trace.attributes.SemanticAttributes
+import java.util.concurrent.TimeoutException
 
 class FinatraServerTest extends HttpServerTest<HttpServer> {
   private static final Duration TIMEOUT = Duration.fromSeconds(5)
@@ -86,21 +83,20 @@ class FinatraServerTest extends HttpServerTest<HttpServer> {
 
   @Override
   void handlerSpan(TraceAssert trace, int index, Object parent, String method = "GET", ServerEndpoint endpoint = SUCCESS) {
-    def errorEndpoint = endpoint == EXCEPTION || endpoint == ERROR
     trace.span(index) {
       operationName "FinatraController"
       spanKind INTERNAL
-      errored errorEndpoint
       childOf(parent as SpanData)
-      tags {
-        // Finatra doesn't propagate the stack trace or exception to the instrumentation
-        // so the normal errorTags() method can't be used
+      // Finatra doesn't propagate the stack trace or exception to the instrumentation
+      // so the normal errorAttributes() method can't be used
+      errored false
+      attributes {
       }
     }
   }
 
   @Override
-  void serverSpan(TraceAssert trace, int index, String traceID = null, String parentID = null, String method = "GET", ServerEndpoint endpoint = SUCCESS) {
+  void serverSpan(TraceAssert trace, int index, String traceID = null, String parentID = null, String method = "GET", Long responseContentLength = null, ServerEndpoint endpoint = SUCCESS) {
     trace.span(index) {
       operationName endpoint == PATH_PARAM ? "/path/:id/param" : endpoint.resolvePath(address).path
       spanKind SERVER
@@ -111,15 +107,15 @@ class FinatraServerTest extends HttpServerTest<HttpServer> {
       } else {
         parent()
       }
-      tags {
-        "$MoreTags.NET_PEER_PORT" Long
-        "$MoreTags.NET_PEER_IP" { it == null || it == "127.0.0.1" } // Optional
-        "$Tags.HTTP_URL" { it == "${endpoint.resolve(address)}" || it == "${endpoint.resolveWithoutFragment(address)}" }
-        "$Tags.HTTP_METHOD" method
-        "$Tags.HTTP_STATUS" endpoint.status
-        if (endpoint.query) {
-          "$MoreTags.HTTP_QUERY" endpoint.query
-        }
+      attributes {
+        "${SemanticAttributes.NET_PEER_PORT.key()}" Long
+        "${SemanticAttributes.NET_PEER_IP.key()}" { it == null || it == "127.0.0.1" } // Optional
+        "${SemanticAttributes.HTTP_URL.key()}" { it == "${endpoint.resolve(address)}" || it == "${endpoint.resolveWithoutFragment(address)}" }
+        "${SemanticAttributes.HTTP_METHOD.key()}" method
+        "${SemanticAttributes.HTTP_STATUS_CODE.key()}" endpoint.status
+        "${SemanticAttributes.HTTP_FLAVOR.key()}" "HTTP/1.1"
+        "${SemanticAttributes.HTTP_USER_AGENT.key()}" TEST_USER_AGENT
+        "${SemanticAttributes.HTTP_CLIENT_IP.key()}" TEST_CLIENT_IP
       }
     }
   }

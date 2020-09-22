@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.opentelemetry.benchmark;
 
 import io.opentelemetry.benchmark.classes.TracedClass;
@@ -33,21 +34,18 @@ public class ClassRetransformingBenchmark {
   }
 
   @Benchmark
-  public void testUntracedRetransform(final BenchmarkState state)
-      throws UnmodifiableClassException {
+  public void testUntracedRetransform(BenchmarkState state) throws UnmodifiableClassException {
     state.inst.retransformClasses(UntracedClass.class);
   }
 
   @Benchmark
-  public void testTracedRetransform(final BenchmarkState state) throws UnmodifiableClassException {
+  public void testTracedRetransform(BenchmarkState state) throws UnmodifiableClassException {
     state.inst.retransformClasses(TracedClass.class);
   }
 
-  @Fork(jvmArgsAppend = "-javaagent:/path/to/opentelemetry-auto-master.jar")
-  public static class WithAgentMaster extends ClassRetransformingBenchmark {}
-
   @Fork(
       jvmArgsAppend =
-          "-javaagent:/path/to/opentelemetry-java-instrumentation/java-agent/build/libs/opentelemetry-auto.jar")
+          "-javaagent:/path/to/opentelemetry-java-instrumentation"
+              + "/javaagent/build/libs/opentelemetry-javaagent.jar")
   public static class WithAgent extends ClassRetransformingBenchmark {}
 }

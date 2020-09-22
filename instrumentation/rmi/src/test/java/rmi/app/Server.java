@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package rmi.app;
 
 import java.rmi.RemoteException;
@@ -28,11 +29,11 @@ public class Server extends UnicastRemoteObject implements Greeter {
   }
 
   @Override
-  public String hello(final String name) {
+  public String hello(String name) {
     return someMethod(name);
   }
 
-  public String someMethod(final String name) {
+  public String someMethod(String name) {
     return "Hello " + name;
   }
 

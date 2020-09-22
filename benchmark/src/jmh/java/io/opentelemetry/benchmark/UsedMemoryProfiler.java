@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.opentelemetry.benchmark;
 
 import java.util.ArrayList;
@@ -35,8 +36,7 @@ public class UsedMemoryProfiler implements InternalProfiler {
   }
 
   @Override
-  public void beforeIteration(
-      final BenchmarkParams benchmarkParams, final IterationParams iterationParams) {
+  public void beforeIteration(BenchmarkParams benchmarkParams, IterationParams iterationParams) {
     System.gc();
     System.runFinalization();
 
@@ -46,14 +46,12 @@ public class UsedMemoryProfiler implements InternalProfiler {
 
   @Override
   public Collection<? extends Result> afterIteration(
-      final BenchmarkParams benchmarkParams,
-      final IterationParams iterationParams,
-      final IterationResult result) {
+      BenchmarkParams benchmarkParams, IterationParams iterationParams, IterationResult result) {
 
-    final long totalHeap = Runtime.getRuntime().totalMemory();
-    final long usedHeap = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+    long totalHeap = Runtime.getRuntime().totalMemory();
+    long usedHeap = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
 
-    final Collection<ScalarResult> results = new ArrayList<>();
+    Collection<ScalarResult> results = new ArrayList<>();
     results.add(
         new ScalarResult("heap.total.before", totalHeapBefore, "bytes", AggregationPolicy.AVG));
     results.add(

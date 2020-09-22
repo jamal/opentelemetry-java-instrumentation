@@ -1,24 +1,30 @@
 import java.time.Duration
 
-if (project.path.startsWith(":instrumentation-core")) {
-  apply plugin: 'java-library'
-} else {
-  apply plugin: 'java'
-}
+apply plugin: 'java-library'
 apply plugin: 'groovy'
+apply plugin: 'org.gradle.test-retry'
 
 apply from: "$rootDir/gradle/spotless.gradle"
 apply from: "$rootDir/gradle/checkstyle.gradle"
 apply from: "$rootDir/gradle/codenarc.gradle"
 apply from: "$rootDir/gradle/spotbugs.gradle"
 
+afterEvaluate {
+  if (!archivesBaseName.startsWith('javaagent') &&
+    (group == 'io.opentelemetry.instrumentation.auto' || findProperty('mavenGroupId') == 'io.opentelemetry.instrumentation.auto')) {
+    archivesBaseName = 'opentelemetry-auto-' + archivesBaseName
+  } else {
+    archivesBaseName = 'opentelemetry-' + archivesBaseName
+  }
+}
+
 def applyCodeCoverage = !(
-    project.path.startsWith(":smoke-tests") ||
-        //TODO why some tests fail on java 11 if jacoco is present?
-        project.path == ":opentelemetry-auto" ||
-        project.path == ":load-generator" ||
-        project.path.startsWith(":benchmark") ||
-        project.path.startsWith(":instrumentation"))
+  project.path.startsWith(":smoke-tests") ||
+    //TODO why some tests fail on java 11 if jacoco is present?
+    project.path == ":javaagent" ||
+    project.path == ":load-generator" ||
+    project.path.startsWith(":benchmark") ||
+    project.path.startsWith(":instrumentation"))
 
 if (applyCodeCoverage) {
   apply from: "$rootDir/gradle/jacoco.gradle"
@@ -39,16 +45,6 @@ java {
   withSourcesJar()
 }
 
-sourceSets {
-  main {
-    java {
-      srcDir 'src/main/java'
-      srcDir 'src/main/java8'
-      srcDir 'src/main/java9'
-    }
-  }
-}
-
 tasks.withType(JavaCompile) {
   options.compilerArgs.addAll(['--release', project.ext.release.majorVersion])
 }
@@ -57,14 +53,6 @@ tasks.withType(GroovyCompile) {
 }
 tasks.withType(ScalaCompile) {
   options.compilerArgs.addAll(['--release', project.ext.release.majorVersion])
-}
-
-
-apply plugin: "io.franzbecker.gradle-lombok"
-
-lombok { // optional: values below are the defaults
-  version = versions.lombok
-  sha256 = ""
 }
 
 apply plugin: "eclipse"
@@ -96,11 +84,9 @@ jar {
 }
 
 repositories {
+  mavenLocal()
   jcenter()
   mavenCentral()
-  maven {
-    url "https://adoptopenjdk.jfrog.io/adoptopenjdk/jmc-libs-snapshots"
-  }
   maven {
     url "https://repo.typesafe.com/typesafe/releases"
   }
@@ -111,24 +97,42 @@ repositories {
       includeGroup "io.opentelemetry"
     }
   }
-  mavenLocal()
 }
 
 dependencies {
-  testCompile deps.spock
-  testCompile deps.groovy
-  testCompile deps.testLogging
-  testCompile group: 'info.solidsoft.spock', name: 'spock-global-unroll', version: '0.5.1'
-  testCompile group: 'com.github.stefanbirkner', name: 'system-rules', version: '1.19.0'
+  compileOnly group: 'org.checkerframework', name: 'checker-qual', version: versions.checkerFramework
+
+  testImplementation enforcedPlatform(group: 'org.junit', name: 'junit-bom', version: versions.junit5)
+  testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api'
+  testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-params'
+  testRuntimeOnly group: 'org.junit.jupiter', name: 'junit-jupiter-engine'
+  testRuntimeOnly group: 'org.junit.vintage', name: 'junit-vintage-engine'
+
+  testImplementation deps.spock
+  testImplementation deps.groovy
+  testImplementation deps.testLogging
+  testImplementation group: 'info.solidsoft.spock', name: 'spock-global-unroll', version: '0.5.1'
+  testImplementation group: 'com.github.stefanbirkner', name: 'system-rules', version: '1.19.0'
+
+  constraints {
+    // need to pin the opentelemetry-sdk transitive dependency versions explicitly, otherwise the
+    // latest snapshots are used, because the opentelemetry-sdk snapshot pom references these
+    // transitive dependencies using the generic SNAPSHOT instead of a specific snapshot
+    implementation group: 'io.opentelemetry', name: 'opentelemetry-sdk-common', version: versions.opentelemetryAnother
+    implementation group: 'io.opentelemetry', name: 'opentelemetry-sdk-correlation-context', version: versions.opentelemetryAnother
+    implementation group: 'io.opentelemetry', name: 'opentelemetry-proto', version: versions.opentelemetryOther
+    implementation group: 'io.opentelemetry', name: 'opentelemetry-sdk-metrics', version: versions.opentelemetryAnother
+    implementation group: 'io.opentelemetry', name: 'opentelemetry-sdk-tracing', version: versions.opentelemetryAnother
+  }
 }
 
 jar {
   manifest {
     attributes(
-        "Implementation-Title": project.name,
-        "Implementation-Version": project.version,
-        "Implementation-Vendor": "OpenTelemetry",
-        "Implementation-URL": "https://github.com/open-telemetry/opentelemetry-java-instrumentation",
+      "Implementation-Title": project.name,
+      "Implementation-Version": project.version,
+      "Implementation-Vendor": "OpenTelemetry",
+      "Implementation-URL": "https://github.com/open-telemetry/opentelemetry-java-instrumentation",
     )
   }
 }
@@ -161,8 +165,8 @@ project.afterEvaluate {
   if (project.plugins.hasPlugin('org.unbroken-dome.test-sets') && configurations.hasProperty("latestDepTestRuntime")) {
     tasks.withType(Test).configureEach {
       doFirst {
-        def testArtifacts = configurations.testRuntime.resolvedConfiguration.resolvedArtifacts
-        def latestTestArtifacts = configurations.latestDepTestRuntime.resolvedConfiguration.resolvedArtifacts
+        def testArtifacts = configurations.testRuntimeClasspath.resolvedConfiguration.resolvedArtifacts
+        def latestTestArtifacts = configurations.latestDepTestRuntimeClasspath.resolvedConfiguration.resolvedArtifacts
         assert testArtifacts != latestTestArtifacts: "latestDepTest dependencies are identical to test"
       }
     }
@@ -280,9 +284,7 @@ addTestRule("test")
 addTestRule("latestDepTest")
 
 tasks.withType(Test).configureEach {
-  if (project.findProperty("enableJunitPlatform") == true) {
-    useJUnitPlatform()
-  }
+  useJUnitPlatform()
 
   // All tests must complete within 15 minutes.
   // This value is quite big because with lower values (3 mins) we were experiencing large number of false positives
@@ -291,12 +293,38 @@ tasks.withType(Test).configureEach {
   // Disable all tests if current JVM doesn't match version requirements
   // Disable all tests if skipTests property was specified
   enabled = isJavaVersionAllowed(JavaVersion.current()) && !project.rootProject.hasProperty("skipTests")
+
+  retry {
+    // You can see tests that were retried by this mechanism in the collected test reports and build scans.
+    maxRetries = System.getenv("CI") != null ? 5 : 0
+  }
+
+  reports {
+    junitXml.outputPerTestCase = true
+  }
 }
 
-plugins.withType(BasePlugin) {
-  project.afterEvaluate {
-    def deleteTasks = tasks.withType(Delete) + project.tasks.findByPath('clean')
-    def otherTasks = tasks - deleteTasks
-    otherTasks*.mustRunAfter deleteTasks
+tasks.withType(AbstractArchiveTask) {
+  preserveFileTimestamps = false
+  reproducibleFileOrder = true
+}
+
+plugins.withId('net.ltgt.errorprone') {
+  dependencies {
+    annotationProcessor group: "com.uber.nullaway", name: "nullaway", version: versions.nullaway
+    errorprone group: "com.google.errorprone", name: "error_prone_core", version: versions.errorprone
+  }
+
+  tasks.withType(JavaCompile) {
+    if (!name.toLowerCase().contains("test")) {
+      options.errorprone {
+        error("NullAway")
+
+        // Doesn't work well with Java 8
+        disable("FutureReturnValueIgnored")
+
+        option("NullAway:AnnotatedPackages", "io.opentelemetry,com.linecorp.armeria,com.google.common")
+      }
+    }
   }
 }

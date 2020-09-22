@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.opentelemetry.auto.test.server.http.TestHttpServer.httpServer
+
 import io.opentelemetry.auto.test.AgentTestRunner
+import javax.ws.rs.client.Client
 import org.glassfish.jersey.client.JerseyClientBuilder
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.util.concurrent.AsyncConditions
-
-import javax.ws.rs.client.Client
-
-import static io.opentelemetry.auto.test.server.http.TestHttpServer.httpServer
 
 class JaxMultithreadedClientTest extends AgentTestRunner {
 

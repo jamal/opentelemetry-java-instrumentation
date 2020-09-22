@@ -10,9 +10,22 @@ publishing {
   }
   publications {
     maven(MavenPublication) {
-      artifact javadocJar
-      artifact sourcesJar
-      artifact shadowJar
+      if (project.tasks.findByName("shadowJar") != null && !findProperty('noShadowPublish')) {
+        project.shadow.component(it)
+        //These two are here just to satisfy Maven Central
+        artifact sourcesJar
+        artifact javadocJar
+      } else {
+        from components.java
+      }
+
+      afterEvaluate {
+        def mavenGroupId = project.findProperty('mavenGroupId')
+        if (mavenGroupId) {
+          groupId = mavenGroupId
+        }
+        artifactId = artifactPrefix(project, archivesBaseName) + archivesBaseName
+      }
 
       pom {
         name = 'OpenTelemetry Instrumentation for Java'
@@ -48,6 +61,22 @@ publishing {
 
     }
   }
+}
+
+private String artifactPrefix(Project p, String archivesBaseName) {
+  if (archivesBaseName.startsWith("opentelemetry")) {
+    return ''
+  }
+  if (p.name.startsWith("opentelemetry")) {
+    return ''
+  }
+  if (p.name.startsWith("auto")) {
+    return 'opentelemetry-'
+  }
+  if (p.group == 'io.opentelemetry.instrumentation.auto') {
+    return 'opentelemetry-auto-'
+  }
+  return 'opentelemetry-'
 }
 
 bintray {

@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import io.opentelemetry.auto.config.Config
-import io.opentelemetry.auto.instrumentation.jdbc.JDBCUtils
-import io.opentelemetry.auto.instrumentation.jdbc.normalizer.SqlNormalizer
+
 import io.opentelemetry.auto.test.utils.ConfigUtils
 import io.opentelemetry.auto.util.test.AgentSpecification
+import io.opentelemetry.instrumentation.api.config.Config
+import io.opentelemetry.instrumentation.auto.jdbc.JDBCUtils
+import io.opentelemetry.instrumentation.auto.jdbc.normalizer.SqlNormalizer
 import spock.lang.Timeout
 
 @Timeout(20)
@@ -142,14 +143,14 @@ class SqlNormalizerTest extends AgentSpecification {
   def "config can disable sql normalizer"() {
     setup:
     ConfigUtils.updateConfig {
-      System.setProperty("ota." + Config.SQL_NORMALIZER_ENABLED, "false")
+      System.setProperty("otel." + Config.SQL_NORMALIZER_ENABLED, "false")
     }
     try {
       String s = "SELECT * FROM TABLE WHERE FIELD = 1234"
       assert s == JDBCUtils.normalizeSql(s)
     } finally {
       ConfigUtils.updateConfig {
-        System.setProperty("ota." + Config.SQL_NORMALIZER_ENABLED, "true")
+        System.setProperty("otel." + Config.SQL_NORMALIZER_ENABLED, "true")
       }
     }
   }

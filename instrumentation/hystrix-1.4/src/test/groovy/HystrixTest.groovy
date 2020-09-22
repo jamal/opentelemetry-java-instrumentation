@@ -13,21 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import com.netflix.hystrix.HystrixCommand
-import io.opentelemetry.auto.test.AgentTestRunner
-import spock.lang.Timeout
-
-import java.util.concurrent.BlockingQueue
-import java.util.concurrent.LinkedBlockingQueue
 
 import static com.netflix.hystrix.HystrixCommandGroupKey.Factory.asKey
 import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
+
+import com.netflix.hystrix.HystrixCommand
+import io.opentelemetry.auto.test.AgentTestRunner
+import io.opentelemetry.auto.test.utils.ConfigUtils
+import java.util.concurrent.BlockingQueue
+import java.util.concurrent.LinkedBlockingQueue
+import spock.lang.Timeout
 
 @Timeout(10)
 class HystrixTest extends AgentTestRunner {
   static {
     // Disable so failure testing below doesn't inadvertently change the behavior.
     System.setProperty("hystrix.command.default.circuitBreaker.enabled", "false")
+    ConfigUtils.updateConfig {
+      System.setProperty("otel.hystrix.tags.enabled", "true")
+    }
 
     // Uncomment for debugging:
     // System.setProperty("hystrix.command.default.execution.timeout.enabled", "false")
@@ -59,14 +63,14 @@ class HystrixTest extends AgentTestRunner {
           operationName "parent"
           parent()
           errored false
-          tags {
+          attributes {
           }
         }
         span(1) {
           operationName "ExampleGroup.HystrixTest\$1.execute"
           childOf span(0)
           errored false
-          tags {
+          attributes {
             "hystrix.command" "HystrixTest\$1"
             "hystrix.group" "ExampleGroup"
             "hystrix.circuit-open" false
@@ -76,7 +80,7 @@ class HystrixTest extends AgentTestRunner {
           operationName "tracedMethod"
           childOf span(1)
           errored false
-          tags {
+          attributes {
           }
         }
       }
@@ -122,25 +126,25 @@ class HystrixTest extends AgentTestRunner {
           operationName "parent"
           parent()
           errored false
-          tags {
+          attributes {
           }
         }
         span(1) {
           operationName "ExampleGroup.HystrixTest\$2.execute"
           childOf span(0)
           errored true
-          tags {
+          errorEvent(IllegalArgumentException)
+          attributes {
             "hystrix.command" "HystrixTest\$2"
             "hystrix.group" "ExampleGroup"
             "hystrix.circuit-open" false
-            errorTags(IllegalArgumentException)
           }
         }
         span(2) {
           operationName "ExampleGroup.HystrixTest\$2.fallback"
           childOf span(1)
           errored false
-          tags {
+          attributes {
             "hystrix.command" "HystrixTest\$2"
             "hystrix.group" "ExampleGroup"
             "hystrix.circuit-open" false

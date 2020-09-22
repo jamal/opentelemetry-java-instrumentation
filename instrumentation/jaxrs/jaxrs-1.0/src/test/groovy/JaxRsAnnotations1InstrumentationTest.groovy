@@ -13,10 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import io.opentelemetry.auto.bootstrap.WeakMap
-import io.opentelemetry.auto.instrumentation.jaxrs.v1_0.JaxRsAnnotationsDecorator
-import io.opentelemetry.auto.test.AgentTestRunner
 
+import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderServerTrace
+
+import io.opentelemetry.auto.test.AgentTestRunner
+import io.opentelemetry.instrumentation.auto.api.WeakMap
+import io.opentelemetry.instrumentation.auto.jaxrs.v1_0.JaxRsAnnotationsTracer
+import java.lang.reflect.Method
 import javax.ws.rs.DELETE
 import javax.ws.rs.GET
 import javax.ws.rs.HEAD
@@ -24,9 +27,6 @@ import javax.ws.rs.OPTIONS
 import javax.ws.rs.POST
 import javax.ws.rs.PUT
 import javax.ws.rs.Path
-import java.lang.reflect.Method
-
-import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
 
 class JaxRsAnnotations1InstrumentationTest extends AgentTestRunner {
 
@@ -44,7 +44,7 @@ class JaxRsAnnotations1InstrumentationTest extends AgentTestRunner {
       trace(0, 1) {
         span(0) {
           operationName "POST /a"
-          tags {
+          attributes {
           }
         }
       }
@@ -54,7 +54,7 @@ class JaxRsAnnotations1InstrumentationTest extends AgentTestRunner {
   def "span named '#name' from annotations on class when is not root span"() {
     setup:
     def startingCacheSize = spanNames.size()
-    runUnderTrace("test") {
+    runUnderServerTrace("test") {
       obj.call()
     }
 
@@ -64,13 +64,13 @@ class JaxRsAnnotations1InstrumentationTest extends AgentTestRunner {
         span(0) {
           operationName name
           parent()
-          tags {
+          attributes {
           }
         }
         span(1) {
           operationName "${className}.call"
           childOf span(0)
-          tags {
+          attributes {
           }
         }
       }
@@ -79,7 +79,7 @@ class JaxRsAnnotations1InstrumentationTest extends AgentTestRunner {
     spanNames.get(obj.class).size() == 1
 
     when: "multiple calls to the same method"
-    runUnderTrace("test") {
+    runUnderServerTrace("test") {
       (1..10).each {
         obj.call()
       }
@@ -142,13 +142,13 @@ class JaxRsAnnotations1InstrumentationTest extends AgentTestRunner {
     className = getClassName(obj.class)
 
     // JavaInterfaces classes are loaded on a different classloader, so we need to find the right cache instance.
-    decorator = obj.class.classLoader.loadClass(JaxRsAnnotationsDecorator.name).getField("DECORATE").get(null)
+    decorator = obj.class.classLoader.loadClass(JaxRsAnnotationsTracer.name).getField("TRACER").get(null)
     spanNames = (WeakMap<Class, Map<Method, String>>) decorator.spanNames
   }
 
   def "no annotations has no effect"() {
     setup:
-    runUnderTrace("test") {
+    runUnderServerTrace("test") {
       obj.call()
     }
 
@@ -157,7 +157,7 @@ class JaxRsAnnotations1InstrumentationTest extends AgentTestRunner {
       trace(0, 1) {
         span(0) {
           operationName "test"
-          tags {
+          attributes {
           }
         }
       }

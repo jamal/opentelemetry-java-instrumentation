@@ -13,19 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
-import io.opentelemetry.auto.test.asserts.TraceAssert
-import io.opentelemetry.auto.test.base.HttpServerTest
-import org.eclipse.jetty.server.Request
-import org.eclipse.jetty.server.Server
-import org.eclipse.jetty.server.handler.AbstractHandler
-import org.eclipse.jetty.server.handler.ErrorHandler
-
-import javax.servlet.DispatcherType
-import javax.servlet.ServletException
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
 
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.ERROR
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.EXCEPTION
@@ -35,9 +22,24 @@ import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.REDI
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCCESS
 import static io.opentelemetry.trace.Span.Kind.SERVER
 
+import io.opentelemetry.auto.test.asserts.TraceAssert
+import io.opentelemetry.auto.test.base.HttpServerTest
+import io.opentelemetry.trace.attributes.SemanticAttributes
+import javax.servlet.DispatcherType
+import javax.servlet.ServletException
+import javax.servlet.http.HttpServletRequest
+import javax.servlet.http.HttpServletResponse
+import org.eclipse.jetty.server.Request
+import org.eclipse.jetty.server.Response
+import org.eclipse.jetty.server.Server
+import org.eclipse.jetty.server.handler.AbstractHandler
+import org.eclipse.jetty.server.handler.ErrorHandler
+import spock.lang.Shared
+
 class JettyHandlerTest extends HttpServerTest<Server> {
 
-  static errorHandler = new ErrorHandler() {
+  @Shared
+  ErrorHandler errorHandler = new ErrorHandler() {
     @Override
     protected void handleErrorPage(HttpServletRequest request, Writer writer, int code, String message) throws IOException {
       Throwable th = (Throwable) request.getAttribute("javax.servlet.error.exception")
@@ -47,6 +49,9 @@ class JettyHandlerTest extends HttpServerTest<Server> {
       }
     }
   }
+
+  @Shared
+  TestHandler testHandler = new TestHandler()
 
   @Override
   Server startServer(int port) {
@@ -58,7 +63,7 @@ class JettyHandlerTest extends HttpServerTest<Server> {
   }
 
   AbstractHandler handler() {
-    TestHandler.INSTANCE
+    testHandler
   }
 
   @Override
@@ -101,12 +106,13 @@ class JettyHandlerTest extends HttpServerTest<Server> {
   }
 
   static class TestHandler extends AbstractHandler {
-    static final TestHandler INSTANCE = new TestHandler()
-
     @Override
     void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+      //This line here is to verify that we don't break Jetty if it wants to cast to implementation class
+      //See https://github.com/open-telemetry/opentelemetry-java-instrumentation/issues/1096
+      Response jettyResponse = response as Response
       if (baseRequest.dispatcherType != DispatcherType.ERROR) {
-        handleRequest(baseRequest, response)
+        handleRequest(baseRequest, jettyResponse)
         baseRequest.handled = true
       } else {
         errorHandler.handle(target, baseRequest, response, response)
@@ -115,33 +121,29 @@ class JettyHandlerTest extends HttpServerTest<Server> {
   }
 
   @Override
-  void serverSpan(TraceAssert trace, int index, String traceID = null, String parentID = null, String method = "GET", ServerEndpoint endpoint = SUCCESS) {
-    def handlerName = handler().class.name
+  void serverSpan(TraceAssert trace, int index, String traceID = null, String parentID = null, String method = "GET", Long responseContentLength = null, ServerEndpoint endpoint = SUCCESS) {
     trace.span(index) {
-      operationName "$method $handlerName"
+      operationName "TestHandler.handle"
       spanKind SERVER
       errored endpoint.errored
+      if (endpoint == EXCEPTION) {
+        errorEvent(Exception, EXCEPTION.body)
+      }
       if (parentID != null) {
         traceId traceID
         parentId parentID
       } else {
         parent()
       }
-      tags {
-        "$MoreTags.NET_PEER_IP" { it == null || it == "127.0.0.1" } // Optional
-        "$MoreTags.NET_PEER_PORT" Long
-        "$Tags.HTTP_URL" { it == "${endpoint.resolve(address)}" || it == "${endpoint.resolveWithoutFragment(address)}" }
-        "$Tags.HTTP_METHOD" method
-        "$Tags.HTTP_STATUS" endpoint.status
-        "span.origin.type" handlerName
-        if (endpoint.errored) {
-          "error.msg" { it == null || it == EXCEPTION.body }
-          "error.type" { it == null || it == Exception.name }
-          "error.stack" { it == null || it instanceof String }
-        }
-        if (endpoint.query) {
-          "$MoreTags.HTTP_QUERY" endpoint.query
-        }
+      attributes {
+        "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+        "${SemanticAttributes.NET_PEER_PORT.key()}" Long
+        "${SemanticAttributes.HTTP_URL.key()}" { it == "${endpoint.resolve(address)}" || it == "${endpoint.resolveWithoutFragment(address)}" }
+        "${SemanticAttributes.HTTP_METHOD.key()}" method
+        "${SemanticAttributes.HTTP_STATUS_CODE.key()}" endpoint.status
+        "${SemanticAttributes.HTTP_FLAVOR.key()}" "HTTP/1.1"
+        "${SemanticAttributes.HTTP_USER_AGENT.key()}" TEST_USER_AGENT
+        "${SemanticAttributes.HTTP_CLIENT_IP.key()}" TEST_CLIENT_IP
       }
     }
   }

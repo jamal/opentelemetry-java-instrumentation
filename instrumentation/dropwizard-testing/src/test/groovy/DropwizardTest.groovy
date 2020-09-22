@@ -13,26 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import io.dropwizard.Application
-import io.dropwizard.Configuration
-import io.dropwizard.setup.Bootstrap
-import io.dropwizard.setup.Environment
-import io.dropwizard.testing.ConfigOverride
-import io.dropwizard.testing.DropwizardTestSupport
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
-import io.opentelemetry.auto.test.asserts.TraceAssert
-import io.opentelemetry.auto.test.base.HttpServerTest
-import io.opentelemetry.auto.test.utils.PortUtils
-import io.opentelemetry.sdk.trace.data.SpanData
-import org.eclipse.jetty.servlet.ServletHandler
-import spock.lang.Retry
-
-import javax.ws.rs.GET
-import javax.ws.rs.Path
-import javax.ws.rs.PathParam
-import javax.ws.rs.QueryParam
-import javax.ws.rs.core.Response
 
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.ERROR
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.EXCEPTION
@@ -43,8 +23,23 @@ import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCC
 import static io.opentelemetry.trace.Span.Kind.INTERNAL
 import static io.opentelemetry.trace.Span.Kind.SERVER
 
-// Work around for: address already in use
-@Retry(count = 5, delay = 100)
+import io.dropwizard.Application
+import io.dropwizard.Configuration
+import io.dropwizard.setup.Bootstrap
+import io.dropwizard.setup.Environment
+import io.dropwizard.testing.ConfigOverride
+import io.dropwizard.testing.DropwizardTestSupport
+import io.opentelemetry.auto.test.asserts.TraceAssert
+import io.opentelemetry.auto.test.base.HttpServerTest
+import io.opentelemetry.auto.test.utils.PortUtils
+import io.opentelemetry.sdk.trace.data.SpanData
+import io.opentelemetry.trace.attributes.SemanticAttributes
+import javax.ws.rs.GET
+import javax.ws.rs.Path
+import javax.ws.rs.PathParam
+import javax.ws.rs.QueryParam
+import javax.ws.rs.core.Response
+
 class DropwizardTest extends HttpServerTest<DropwizardTestSupport> {
 
   @Override
@@ -96,17 +91,15 @@ class DropwizardTest extends HttpServerTest<DropwizardTestSupport> {
       operationName "${this.testResource().simpleName}.${endpoint.name().toLowerCase()}"
       spanKind INTERNAL
       errored endpoint == EXCEPTION
-      childOf((SpanData) parent)
-      tags {
-        if (endpoint == EXCEPTION) {
-          errorTags(Exception, EXCEPTION.body)
-        }
+      if (endpoint == EXCEPTION) {
+        errorEvent(Exception, EXCEPTION.body)
       }
+      childOf((SpanData) parent)
     }
   }
 
   @Override
-  void serverSpan(TraceAssert trace, int index, String traceID = null, String parentID = null, String method = "GET", ServerEndpoint endpoint = SUCCESS) {
+  void serverSpan(TraceAssert trace, int index, String traceID = null, String parentID = null, String method = "GET", Long responseContentLength = null, ServerEndpoint endpoint = SUCCESS) {
     trace.span(index) {
       operationName "$method ${endpoint == PATH_PARAM ? "/path/{id}/param" : endpoint.resolvePath(address).path}"
       spanKind SERVER
@@ -117,23 +110,16 @@ class DropwizardTest extends HttpServerTest<DropwizardTestSupport> {
       } else {
         parent()
       }
-      tags {
-        "$MoreTags.NET_PEER_IP" { it == null || it == "127.0.0.1" } // Optional
-        "$MoreTags.NET_PEER_PORT" Long
-        "$Tags.HTTP_URL" { it == "${endpoint.resolve(address)}" || it == "${endpoint.resolveWithoutFragment(address)}" }
-        "$Tags.HTTP_METHOD" method
-        "$Tags.HTTP_STATUS" endpoint.status
-        "span.origin.type" ServletHandler.CachedChain.name
-        "servlet.context" ""
-        "servlet.path" ""
-        if (endpoint.errored) {
-          "error.msg" { it == null || it == EXCEPTION.body }
-          "error.type" { it == null || it == Exception.name }
-          "error.stack" { it == null || it instanceof String }
-        }
-        if (endpoint.query) {
-          "$MoreTags.HTTP_QUERY" endpoint.query
-        }
+      attributes {
+        // dropwizard reports peer ip as the client ip
+        "${SemanticAttributes.NET_PEER_IP.key()}" TEST_CLIENT_IP
+        "${SemanticAttributes.NET_PEER_PORT.key()}" Long
+        "${SemanticAttributes.HTTP_URL.key()}" { it == "${endpoint.resolve(address)}" || it == "${endpoint.resolveWithoutFragment(address)}" }
+        "${SemanticAttributes.HTTP_METHOD.key()}" method
+        "${SemanticAttributes.HTTP_STATUS_CODE.key()}" endpoint.status
+        "${SemanticAttributes.HTTP_FLAVOR.key()}" "HTTP/1.1"
+        "${SemanticAttributes.HTTP_USER_AGENT.key()}" TEST_USER_AGENT
+        "${SemanticAttributes.HTTP_CLIENT_IP.key()}" TEST_CLIENT_IP
       }
     }
   }

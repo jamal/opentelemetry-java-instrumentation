@@ -13,11 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.opentelemetry.trace.Span.Kind.CLIENT
+import static io.opentelemetry.trace.Span.Kind.INTERNAL
+
 import groovy.json.JsonSlurper
-import io.opentelemetry.auto.bootstrap.instrumentation.decorator.HttpClientDecorator
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
 import io.opentelemetry.auto.test.AgentTestRunner
+import io.opentelemetry.instrumentation.api.tracer.HttpClientTracer
+import io.opentelemetry.trace.attributes.SemanticAttributes
 import org.apache.http.HttpHost
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.util.EntityUtils
@@ -35,9 +38,6 @@ import org.elasticsearch.node.Node
 import org.elasticsearch.plugins.Plugin
 import org.elasticsearch.transport.Netty4Plugin
 import spock.lang.Shared
-
-import static io.opentelemetry.trace.Span.Kind.CLIENT
-import static io.opentelemetry.trace.Span.Kind.INTERNAL
 
 class Elasticsearch6RestClientTest extends AgentTestRunner {
 
@@ -103,22 +103,24 @@ class Elasticsearch6RestClientTest extends AgentTestRunner {
           operationName "GET _cluster/health"
           spanKind INTERNAL
           parent()
-          tags {
-            "$MoreTags.NET_PEER_NAME" httpTransportAddress.address
-            "$MoreTags.NET_PEER_PORT" httpTransportAddress.port
-            "$Tags.HTTP_URL" "_cluster/health"
-            "$Tags.HTTP_METHOD" "GET"
-            "$Tags.DB_TYPE" "elasticsearch"
+          attributes {
+            "${SemanticAttributes.NET_TRANSPORT.key()}" "IP.TCP"
+            "${SemanticAttributes.NET_PEER_NAME.key()}" httpTransportAddress.address
+            "${SemanticAttributes.NET_PEER_PORT.key()}" httpTransportAddress.port
+            "${SemanticAttributes.HTTP_URL.key()}" "_cluster/health"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
           }
         }
         span(1) {
           operationName expectedOperationName("GET")
           spanKind CLIENT
           childOf span(0)
-          tags {
-            "$Tags.HTTP_URL" "_cluster/health"
-            "$Tags.HTTP_METHOD" "GET"
-            "$Tags.HTTP_STATUS" 200
+          attributes {
+            "${SemanticAttributes.HTTP_URL.key()}" "_cluster/health"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
+            "${SemanticAttributes.HTTP_STATUS_CODE.key()}" 200
+            "${SemanticAttributes.HTTP_FLAVOR.key()}" "1.1"
           }
         }
       }
@@ -135,6 +137,6 @@ class Elasticsearch6RestClientTest extends AgentTestRunner {
   }
 
   String expectedOperationName(String method) {
-    return method != null ? "HTTP $method" : HttpClientDecorator.DEFAULT_SPAN_NAME
+    return method != null ? "HTTP $method" : HttpClientTracer.DEFAULT_SPAN_NAME
   }
 }

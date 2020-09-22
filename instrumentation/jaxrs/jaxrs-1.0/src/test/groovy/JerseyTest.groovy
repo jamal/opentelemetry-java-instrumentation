@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderServerTrace
+import static io.opentelemetry.trace.Span.Kind.INTERNAL
+
 import io.dropwizard.testing.junit.ResourceTestRule
 import io.opentelemetry.auto.test.AgentTestRunner
 import org.junit.ClassRule
 import spock.lang.Shared
-
-import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
-import static io.opentelemetry.trace.Span.Kind.INTERNAL
 
 class JerseyTest extends AgentTestRunner {
 
@@ -34,7 +35,7 @@ class JerseyTest extends AgentTestRunner {
   def "test #resource"() {
     when:
     // start a trace because the test doesn't go through any servlet or other instrumentation.
-    def response = runUnderTrace("test.span") {
+    def response = runUnderServerTrace("test.span") {
       resources.client().resource(resource).post(String)
     }
 
@@ -45,14 +46,14 @@ class JerseyTest extends AgentTestRunner {
       trace(0, 2) {
         span(0) {
           operationName expectedSpanName
-          tags {
+          attributes {
           }
         }
 
         span(1) {
           childOf span(0)
           operationName controllerName
-          tags {
+          attributes {
           }
         }
       }
@@ -69,7 +70,7 @@ class JerseyTest extends AgentTestRunner {
 
     when:
     // start a trace because the test doesn't go through any servlet or other instrumentation.
-    def response = runUnderTrace("test.span") {
+    def response = runUnderServerTrace("test.span") {
       resources.client().resource(resource).post(String)
     }
 
@@ -80,14 +81,14 @@ class JerseyTest extends AgentTestRunner {
       trace(0, 2) {
         span(0) {
           operationName expectedSpanName
-          tags {
+          attributes {
           }
         }
         span(1) {
           childOf span(0)
           operationName controller1Name
           spanKind INTERNAL
-          tags {
+          attributes {
           }
         }
       }

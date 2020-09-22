@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package spring.jpa;
 
 import java.util.Properties;
@@ -31,7 +32,7 @@ public class PersistenceConfig {
 
   @Bean(name = "transactionManager")
   public PlatformTransactionManager dbTransactionManager() {
-    final JpaTransactionManager transactionManager = new JpaTransactionManager();
+    JpaTransactionManager transactionManager = new JpaTransactionManager();
     transactionManager.setEntityManagerFactory(entityManagerFactory().getObject());
     return transactionManager;
   }
@@ -39,11 +40,11 @@ public class PersistenceConfig {
   @Bean
   public LocalContainerEntityManagerFactoryBean entityManagerFactory() {
 
-    final HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
+    HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
     vendorAdapter.setDatabase(Database.HSQL);
     vendorAdapter.setGenerateDdl(true);
 
-    final LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+    LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
     em.setDataSource(dataSource());
     em.setPackagesToScan("spring/jpa");
     em.setJpaVendorAdapter(vendorAdapter);
@@ -54,7 +55,7 @@ public class PersistenceConfig {
 
   @Bean
   public DataSource dataSource() {
-    final DriverManagerDataSource dataSource = new DriverManagerDataSource();
+    DriverManagerDataSource dataSource = new DriverManagerDataSource();
     dataSource.setDriverClassName("org.hsqldb.jdbcDriver");
     dataSource.setUrl("jdbc:hsqldb:mem:test");
     dataSource.setUsername("sa");
@@ -63,7 +64,7 @@ public class PersistenceConfig {
   }
 
   private Properties additionalProperties() {
-    final Properties properties = new Properties();
+    Properties properties = new Properties();
     properties.setProperty("hibernate.show_sql", "true");
     properties.setProperty("hibernate.hbm2ddl.auto", "create");
     properties.setProperty("hibernate.dialect", "org.hibernate.dialect.HSQLDialect");

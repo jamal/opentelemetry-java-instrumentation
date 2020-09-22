@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package springdata
 
 import io.opentelemetry.auto.test.asserts.TraceAssert
 
-class CouchbaseSpringRepository26Test extends CouchbaseSpringRepositoryTest {
+class CouchbaseSpringRepository26Test extends AbstractCouchbaseSpringRepositoryTest {
 
   @Override
   void assertCouchbaseCall(TraceAssert trace, int index, Object name, String bucketName = null, Object parentSpan = null) {

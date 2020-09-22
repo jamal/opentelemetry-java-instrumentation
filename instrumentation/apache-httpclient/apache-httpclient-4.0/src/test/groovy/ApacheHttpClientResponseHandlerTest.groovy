@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import io.opentelemetry.auto.test.base.HttpClientTest
 import org.apache.http.HttpResponse
 import org.apache.http.client.ResponseHandler
@@ -40,7 +41,6 @@ class ApacheHttpClientResponseHandlerTest extends HttpClientTest {
   def setupSpec() {
     HttpParams httpParams = client.getParams()
     HttpConnectionParams.setConnectionTimeout(httpParams, CONNECT_TIMEOUT_MS)
-    HttpConnectionParams.setSoTimeout(httpParams, READ_TIMEOUT_MS)
   }
 
   @Override

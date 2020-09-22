@@ -13,19 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import io.dropwizard.Application
-import io.dropwizard.Configuration
-import io.dropwizard.setup.Bootstrap
-import io.dropwizard.setup.Environment
-
-import javax.ws.rs.GET
-import javax.ws.rs.Path
-import javax.ws.rs.PathParam
-import javax.ws.rs.QueryParam
-import javax.ws.rs.container.AsyncResponse
-import javax.ws.rs.container.Suspended
-import javax.ws.rs.core.Response
-import java.util.concurrent.Executors
 
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.ERROR
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.EXCEPTION
@@ -33,6 +20,19 @@ import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.PATH
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.QUERY_PARAM
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.REDIRECT
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCCESS
+
+import io.dropwizard.Application
+import io.dropwizard.Configuration
+import io.dropwizard.setup.Bootstrap
+import io.dropwizard.setup.Environment
+import java.util.concurrent.Executors
+import javax.ws.rs.GET
+import javax.ws.rs.Path
+import javax.ws.rs.PathParam
+import javax.ws.rs.QueryParam
+import javax.ws.rs.container.AsyncResponse
+import javax.ws.rs.container.Suspended
+import javax.ws.rs.core.Response
 
 class DropwizardAsyncTest extends DropwizardTest {
 

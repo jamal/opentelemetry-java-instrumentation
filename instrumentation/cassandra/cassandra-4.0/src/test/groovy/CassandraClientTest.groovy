@@ -13,22 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import com.datastax.oss.driver.api.core.CqlSession
-import com.datastax.oss.driver.api.core.config.DefaultDriverOption
-import com.datastax.oss.driver.api.core.config.DriverConfigLoader
-import com.datastax.oss.driver.internal.core.config.typesafe.DefaultDriverConfigLoader
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
-import io.opentelemetry.auto.test.AgentTestRunner
-import io.opentelemetry.auto.test.asserts.TraceAssert
-import io.opentelemetry.sdk.trace.data.SpanData
-import org.cassandraunit.utils.EmbeddedCassandraServerHelper
-
-import java.time.Duration
 
 import static io.opentelemetry.auto.test.utils.TraceUtils.basicSpan
 import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
 import static io.opentelemetry.trace.Span.Kind.CLIENT
+
+import com.datastax.oss.driver.api.core.CqlSession
+import com.datastax.oss.driver.api.core.config.DefaultDriverOption
+import com.datastax.oss.driver.api.core.config.DriverConfigLoader
+import com.datastax.oss.driver.internal.core.config.typesafe.DefaultDriverConfigLoader
+import io.opentelemetry.auto.test.AgentTestRunner
+import io.opentelemetry.auto.test.asserts.TraceAssert
+import io.opentelemetry.sdk.trace.data.SpanData
+import io.opentelemetry.trace.attributes.SemanticAttributes
+import java.time.Duration
+import org.cassandraunit.utils.EmbeddedCassandraServerHelper
 
 class CassandraClientTest extends AgentTestRunner {
 
@@ -108,13 +107,13 @@ class CassandraClientTest extends AgentTestRunner {
       } else {
         childOf((SpanData) parentSpan)
       }
-      tags {
-        "$MoreTags.NET_PEER_NAME" "localhost"
-        "$MoreTags.NET_PEER_IP" "127.0.0.1"
-        "$MoreTags.NET_PEER_PORT" EmbeddedCassandraServerHelper.getNativeTransportPort()
-        "$Tags.DB_TYPE" "cassandra"
-        "$Tags.DB_INSTANCE" keyspace
-        "$Tags.DB_STATEMENT" statement
+      attributes {
+        "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
+        "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+        "${SemanticAttributes.NET_PEER_PORT.key()}" EmbeddedCassandraServerHelper.getNativeTransportPort()
+        "${SemanticAttributes.DB_SYSTEM.key()}" "cassandra"
+        "${SemanticAttributes.DB_NAME.key()}" keyspace
+        "${SemanticAttributes.DB_STATEMENT.key()}" statement
       }
     }
   }

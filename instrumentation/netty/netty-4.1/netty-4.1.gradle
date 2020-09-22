@@ -4,7 +4,6 @@ ext {
 }
 
 apply from: "$rootDir/gradle/instrumentation.gradle"
-apply plugin: 'org.unbroken-dome.test-sets'
 
 muzzle {
   pass {
@@ -32,26 +31,21 @@ muzzle {
   }
 }
 
-testSets {
-  latestDepTest {
-    dirName = 'test'
-  }
-}
-
 dependencies {
-  compileOnly group: 'io.netty', name: 'netty-codec-http', version: '4.1.0.Final'
+  library group: 'io.netty', name: 'netty-codec-http', version: '4.1.0.Final'
 
-  testCompile project(':instrumentation:trace-annotation')
-  testCompile group: 'io.netty', name: 'netty-codec-http', version: '4.1.0.Final'
-  testCompile group: 'org.asynchttpclient', name: 'async-http-client', version: '2.1.0'
+  testImplementation project(':instrumentation:reactor-3.1')
 
-  latestDepTestCompile group: 'io.netty', name: 'netty-codec-http', version: '(,5.0)'
+  testLibrary group: 'org.asynchttpclient', name: 'async-http-client', version: '2.1.0'
+  testLibrary group: 'io.projectreactor.netty', name: 'reactor-netty', version: '0.8.0.RELEASE'
+
+  latestDepTestLibrary group: 'io.netty', name: 'netty-codec-http', version: '(,5.0)'
   // latest async-http-client incompatable with 5.0+ netty
-  latestDepTestCompile group: 'org.asynchttpclient', name: 'async-http-client', version: '+'
+
 }
 
 // We need to force the dependency to the earliest supported version because other libraries declare newer versions.
-configurations.testCompile {
+configurations.testImplementation {
   resolutionStrategy {
     eachDependency { DependencyResolveDetails details ->
       //specifying a fixed version for all libraries with io.netty' group

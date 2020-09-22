@@ -13,7 +13,11 @@ cache_keys: &cache_keys
     # Rev the version when the cache gets too big
     - trace-java-v1-{{ .Branch }}-{{ .Revision }}
     - trace-java-v1-{{ .Branch }}
-    # - dd-trace-java-v1-
+
+parameters:
+  gradle_flags:
+    type: string
+    default: "--stacktrace --no-daemon"
 
 jobs:
   build:
@@ -27,7 +31,11 @@ jobs:
 
       - run:
           name: Build Project
-          command: GRADLE_OPTS="-Dorg.gradle.jvmargs='-Xmx1G -Xms64M' -Dota.forkedMaxHeapSize=1G -Dota.forkedMinHeapSize=64M" ./gradlew clean classes testClasses :opentelemetry-auto:shadowJar :auto-exporters:shadowJar --build-cache --parallel --stacktrace --no-daemon --max-workers=8
+          command: >-
+            GRADLE_OPTS="-Dorg.gradle.jvmargs='-Xmx1G -Xms64M' -Dotel.forkedMaxHeapSize=1G -Dotel.forkedMinHeapSize=64M"
+            ./gradlew clean build shadowJar -x test
+            << pipeline.parameters.gradle_flags >>
+            --max-workers=8
 
       - run:
           name: Collect Libs
@@ -36,6 +44,14 @@ jobs:
 
       - store_artifacts:
           path: ./libs
+
+      - run:
+          name: Collect Reports
+          when: on_fail
+          command: .circleci/collect_reports.sh
+
+      - store_artifacts:
+          path: ./reports
 
       - persist_to_workspace:
           root: .
@@ -60,6 +76,13 @@ jobs:
         # This is used by rabbitmq instrumentation tests
       - image: rabbitmq
 
+    parameters:
+      testTask:
+        type: string
+      prefixTestTask:
+        default: false
+        type: boolean
+
     steps:
       - checkout
 
@@ -71,7 +94,11 @@ jobs:
 
       - run:
           name: Run Tests
-          command: GRADLE_OPTS="-Dota.forkedMaxHeapSize=4G -Dota.forkedMinHeapSize=64M" ./gradlew $TEST_TASK --build-cache --parallel --stacktrace --no-daemon --max-workers=6
+          command: >-
+            GRADLE_OPTS="-Dotel.forkedMaxHeapSize=4G -Dotel.forkedMinHeapSize=64M"
+            ./gradlew <<# parameters.prefixTestTask>>testJava<</ parameters.prefixTestTask>><< parameters.testTask >> -x :smoke-tests:test
+            << pipeline.parameters.gradle_flags >>
+            --max-workers=6
 
       - run:
           name: Collect Reports
@@ -89,90 +116,6 @@ jobs:
       - store_test_results:
           path: ./results
 
-  test_7:
-    <<: *default_test_job
-    environment:
-      - TEST_TASK: testJava7
-
-  test_8:
-    <<: *default_test_job
-    environment:
-      - TEST_TASK: testJava8
-
-  test_latest:
-    <<: *default_test_job
-    environment:
-      - TEST_TASK: latestDepTest
-
-  test_ibm8:
-    <<: *default_test_job
-    environment:
-      - TEST_TASK: testJavaIBM8
-
-  test_zulu8:
-    <<: *default_test_job
-    environment:
-      - TEST_TASK: testJavaZULU8
-
-  test_11:
-    <<: *default_test_job
-    environment:
-      - TEST_TASK: testJava11 jacocoTestReport jacocoTestCoverageVerification
-
-  test_zulu11:
-    <<: *default_test_job
-    environment:
-      - TEST_TASK: testJavaZULU11
-
-  test_12:
-    <<: *default_test_job
-    environment:
-      - TEST_TASK: testJava12
-
-  test_13:
-    <<: *default_test_job
-    environment:
-      - TEST_TASK: testJava13
-
-  test_zulu13:
-    <<: *default_test_job
-    environment:
-      - TEST_TASK: testJavaZULU13
-
-  test_14:
-    <<: *default_test_job
-    environment:
-      - TEST_TASK: testJava14
-
-  test_zulu14:
-    <<: *default_test_job
-    environment:
-      - TEST_TASK: testJavaZULU14
-
-  check:
-    <<: *defaults
-
-    steps:
-      - checkout
-
-      - attach_workspace:
-          at: .
-
-      - restore_cache:
-          <<: *cache_keys
-
-      - run:
-          name: Build Project
-          command: GRADLE_OPTS="-Dota.forkedMaxHeapSize=4G -Dota.forkedMinHeapSize=64M" ./gradlew build -PskipTests --build-cache --parallel --stacktrace --no-daemon --max-workers=8
-
-      - run:
-          name: Collect Reports
-          when: always
-          command: .circleci/collect_reports.sh
-
-      - store_artifacts:
-          path: ./reports
-
   muzzle:
     <<: *defaults
     steps:
@@ -183,7 +126,10 @@ jobs:
 
       - run:
           name: Verify Muzzle
-          command: SKIP_BUILDSCAN="true" GRADLE_OPTS="-Dorg.gradle.jvmargs='-Xmx4G -Xms64M' -Dota.forkedMaxHeapSize=4G -Dota.forkedMinHeapSize=64M" ./gradlew muzzle --parallel --stacktrace --no-daemon --max-workers=16
+          command: >-
+            SKIP_BUILDSCAN="true"
+            GRADLE_OPTS="-Dorg.gradle.jvmargs='-Xmx4G -Xms64M' -Dotel.forkedMaxHeapSize=4G -Dotel.forkedMinHeapSize=64M"
+            ./gradlew muzzle --parallel --stacktrace --no-daemon --max-workers=16
 
   publish: &publish
     <<: *defaults
@@ -217,69 +163,23 @@ jobs:
       - restore_cache:
           <<: *cache_keys
 
-      - run: ./gradlew -Prelease.useLastTag=true final
-
-  patch_release:
-    <<: *defaults
-    steps:
-      - checkout
-      - run: |
-          if [[ $(git tag --points-at HEAD | grep "^v") ]]; then
-              echo "Don't make patch release on commit which already has version tag"
-              circleci-agent step halt
-          fi
-
-      - attach_workspace:
-          at: .
-
-      - restore_cache:
-          <<: *cache_keys
-
-      - run: ./gradlew -Prelease.scope=patch final
-
+      - run:
+          command: ./gradlew -Prelease.useLastTag=true final
+          no_output_timeout: 6h
 
 workflows:
-  version: 2
   build_test_deploy:
     jobs:
       - build:
           filters:
             tags:
               only: /.*/
-      - test_7:
-          requires:
-            - build
-          filters:
-            tags:
-              only: /.*/
-      - test_8:
-          requires:
-            - build
-          filters:
-            tags:
-              only: /.*/
-      - test_latest:
-          requires:
-            - build
-          filters:
-            tags:
-              only: /.*/
-      - test_11:
-          requires:
-            - build
-          filters:
-            tags:
-              only: /.*/
-      - test_14:
-          requires:
-            - build
-          filters:
-            tags:
-              only: /.*/
 
-      - check:
+      - default_test_job:
           requires:
             - build
+          name: test_8
+          testTask: testJava8
           filters:
             tags:
               only: /.*/
@@ -293,28 +193,14 @@ workflows:
 
       - publish_master:
           requires:
-            - test_7
             - test_8
-            - test_latest
-            - test_11
-            - test_14
-            - check
+            - muzzle
           filters:
             branches:
               only: master
             tags:
               ignore: /.*/
 
-  nightly_snapshot:
-    triggers:
-      - schedule:
-          cron: "0 0 * * *"
-          filters:
-            branches:
-              only:
-                - depends-on-otel-java-snapshot
-    jobs:
-      - test_11
   release:
     jobs:
       - release:
@@ -322,57 +208,5 @@ workflows:
             branches:
               ignore: /.*/
             tags:
-              # Only for major and minor releases
-              only: /^v.*\.0$/
-  patch_release:
-    jobs:
-      - build:
-          filters:
-            branches:
-              only: /\d+\.\d+\.x$/
-      - test_7:
-          filters:
-            branches:
-              only: /\d+\.\d+\.x$/
-          requires:
-            - build
-      - test_8:
-          filters:
-            branches:
-              only: /\d+\.\d+\.x$/
-          requires:
-            - build
-      - test_11:
-          filters:
-            branches:
-              only: /\d+\.\d+\.x$/
-          requires:
-            - build
-      - test_14:
-          filters:
-            branches:
-              only: /\d+\.\d+\.x$/
-          requires:
-            - build
-      - check:
-          filters:
-            branches:
-              only: /\d+\.\d+\.x$/
-          requires:
-            - build
-      - muzzle:
-          filters:
-            branches:
-              only: /\d+\.\d+\.x$/
-          requires:
-            - build
-      - patch_release:
-          requires:
-            - test_7
-            - test_11
-            - test_14
-            - check
-            - muzzle
-          filters:
-            branches:
-              only: /\d+\.\d+\.x$/
+              # As long as we don't have support branches, we release all tags in the same manner
+              only: /^v.*$/

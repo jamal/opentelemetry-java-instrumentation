@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.opentelemetry.loadgenerator;
 
 import static io.opentelemetry.trace.TracingContextUtils.currentContextWith;
@@ -34,8 +35,7 @@ import picocli.CommandLine.Option;
     description = "Generates traces and spans at a specified rate")
 public class LoadGenerator implements Callable<Integer> {
 
-  private static final Tracer TRACER =
-      OpenTelemetry.getTracerProvider().get("io.opentelemetry.auto");
+  private static final Tracer TRACER = OpenTelemetry.getTracer("io.opentelemetry.auto");
 
   @Option(names = "--rate", required = true, description = "rate, per second, to generate traces")
   private int rate;
@@ -81,7 +81,7 @@ public class LoadGenerator implements Callable<Integer> {
     long tracesAtLastReport = 0;
 
     for (int i = 0; i < threads; i++) {
-      final Thread workerThread = new Thread(new Worker(), "Worker-" + i);
+      Thread workerThread = new Thread(new Worker(), "Worker-" + i);
       workerThread.setDaemon(true);
       workerThread.start();
     }
@@ -89,10 +89,10 @@ public class LoadGenerator implements Callable<Integer> {
     while (true) {
       Thread.sleep(printInterval * 1000);
 
-      final long currentTracesSent = tracesSent.get();
-      final long intervalEnd = System.currentTimeMillis();
+      long currentTracesSent = tracesSent.get();
+      long intervalEnd = System.currentTimeMillis();
 
-      final double currentRate =
+      double currentRate =
           (currentTracesSent - tracesAtLastReport) / ((intervalEnd - intervalStart) / 1000d);
 
       System.out.println(
@@ -102,8 +102,8 @@ public class LoadGenerator implements Callable<Integer> {
     }
   }
 
-  public static void main(final String[] args) {
-    final int exitCode = new CommandLine(new LoadGenerator()).execute(args);
+  public static void main(String[] args) {
+    int exitCode = new CommandLine(new LoadGenerator()).execute(args);
     System.exit(exitCode);
   }
 
@@ -114,15 +114,15 @@ public class LoadGenerator implements Callable<Integer> {
 
       while (true) {
         rateLimiter.acquire();
-        final Span parent = TRACER.spanBuilder("parentSpan").startSpan();
+        Span parent = TRACER.spanBuilder("parentSpan").startSpan();
 
-        try (final Scope scope = currentContextWith(parent)) {
+        try (Scope scope = currentContextWith(parent)) {
           for (int i = 0; i < width; i++) {
-            final Span widthSpan = TRACER.spanBuilder("span-" + i).startSpan();
-            try (final Scope widthScope = currentContextWith(widthSpan)) {
+            Span widthSpan = TRACER.spanBuilder("span-" + i).startSpan();
+            try (Scope widthScope = currentContextWith(widthSpan)) {
               for (int j = 0; j < depth - 2; j++) {
-                final Span depthSpan = TRACER.spanBuilder("span-" + i + "-" + j).startSpan();
-                try (final Scope depthScope = currentContextWith(depthSpan)) {
+                Span depthSpan = TRACER.spanBuilder("span-" + i + "-" + j).startSpan();
+                try (Scope depthScope = currentContextWith(depthSpan)) {
                   // do nothing.  Maybe sleep? but that will mean we need more threads to keep the
                   // effective rate
                 } finally {

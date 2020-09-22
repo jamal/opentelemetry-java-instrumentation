@@ -13,23 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static com.netflix.hystrix.HystrixCommandGroupKey.Factory.asKey
+import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
+
 import com.netflix.hystrix.HystrixObservable
 import com.netflix.hystrix.HystrixObservableCommand
 import com.netflix.hystrix.exception.HystrixRuntimeException
 import io.opentelemetry.auto.test.AgentTestRunner
-import rx.Observable
-import rx.schedulers.Schedulers
-
+import io.opentelemetry.auto.test.utils.ConfigUtils
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingQueue
-
-import static com.netflix.hystrix.HystrixCommandGroupKey.Factory.asKey
-import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
+import rx.Observable
+import rx.schedulers.Schedulers
 
 class HystrixObservableTest extends AgentTestRunner {
   static {
     // Disable so failure testing below doesn't inadvertently change the behavior.
     System.setProperty("hystrix.command.default.circuitBreaker.enabled", "false")
+    ConfigUtils.updateConfig {
+      System.setProperty("otel.hystrix.tags.enabled", "true")
+    }
 
     // Uncomment for debugging:
     // System.setProperty("hystrix.command.default.execution.timeout.enabled", "false")
@@ -73,14 +77,14 @@ class HystrixObservableTest extends AgentTestRunner {
           operationName "parent"
           parent()
           errored false
-          tags {
+          attributes {
           }
         }
         span(1) {
           operationName "ExampleGroup.HystrixObservableTest\$1.execute"
           childOf span(0)
           errored false
-          tags {
+          attributes {
             "hystrix.command" "HystrixObservableTest\$1"
             "hystrix.group" "ExampleGroup"
             "hystrix.circuit-open" false
@@ -90,7 +94,7 @@ class HystrixObservableTest extends AgentTestRunner {
           operationName "tracedMethod"
           childOf span(1)
           errored false
-          tags {
+          attributes {
           }
         }
       }
@@ -168,25 +172,25 @@ class HystrixObservableTest extends AgentTestRunner {
           operationName "parent"
           parent()
           errored false
-          tags {
+          attributes {
           }
         }
         span(1) {
           operationName "ExampleGroup.HystrixObservableTest\$2.execute"
           childOf span(0)
           errored true
-          tags {
+          errorEvent(IllegalArgumentException)
+          attributes {
             "hystrix.command" "HystrixObservableTest\$2"
             "hystrix.group" "ExampleGroup"
             "hystrix.circuit-open" false
-            errorTags(IllegalArgumentException)
           }
         }
         span(2) {
           operationName "ExampleGroup.HystrixObservableTest\$2.fallback"
           childOf span(1)
           errored false
-          tags {
+          attributes {
             "hystrix.command" "HystrixObservableTest\$2"
             "hystrix.group" "ExampleGroup"
             "hystrix.circuit-open" false
@@ -266,30 +270,28 @@ class HystrixObservableTest extends AgentTestRunner {
           operationName "parent"
           parent()
           errored true
-          tags {
-            errorTags(HystrixRuntimeException, "HystrixObservableTest\$3 failed and no fallback available.")
-          }
+          errorEvent(HystrixRuntimeException, "HystrixObservableTest\$3 failed and no fallback available.")
         }
         span(1) {
           operationName "FailingGroup.HystrixObservableTest\$3.execute"
           childOf span(0)
           errored true
-          tags {
+          errorEvent(IllegalArgumentException)
+          attributes {
             "hystrix.command" "HystrixObservableTest\$3"
             "hystrix.group" "FailingGroup"
             "hystrix.circuit-open" false
-            errorTags(IllegalArgumentException)
           }
         }
         span(2) {
           operationName "FailingGroup.HystrixObservableTest\$3.fallback"
           childOf span(1)
           errored true
-          tags {
+          errorEvent(UnsupportedOperationException, "No fallback available.")
+          attributes {
             "hystrix.command" "HystrixObservableTest\$3"
             "hystrix.group" "FailingGroup"
             "hystrix.circuit-open" false
-            errorTags(UnsupportedOperationException, "No fallback available.")
           }
         }
       }

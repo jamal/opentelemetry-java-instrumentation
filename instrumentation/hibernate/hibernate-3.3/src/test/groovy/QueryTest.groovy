@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import io.opentelemetry.auto.instrumentation.api.Tags
-import org.hibernate.Query
-import org.hibernate.Session
 
 import static io.opentelemetry.trace.Span.Kind.CLIENT
 import static io.opentelemetry.trace.Span.Kind.INTERNAL
+
+import io.opentelemetry.trace.attributes.SemanticAttributes
+import org.hibernate.Query
+import org.hibernate.Session
 
 class QueryTest extends AbstractHibernateTest {
 
@@ -47,33 +48,32 @@ class QueryTest extends AbstractHibernateTest {
           operationName "Session"
           spanKind INTERNAL
           parent()
-          tags {
+          attributes {
           }
         }
         span(1) {
           operationName expectedSpanName
           spanKind INTERNAL
           childOf span(0)
-          tags {
+          attributes {
           }
         }
         span(2) {
           spanKind CLIENT
           childOf span(1)
-          tags {
-            "$Tags.DB_TYPE" "sql"
-            "$Tags.DB_INSTANCE" "db1"
-            "$Tags.DB_USER" "sa"
-            "$Tags.DB_STATEMENT" String
-            "$Tags.DB_URL" "h2:mem:"
-            "span.origin.type" "org.h2.jdbc.JdbcPreparedStatement"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "h2"
+            "${SemanticAttributes.DB_NAME.key()}" "db1"
+            "${SemanticAttributes.DB_USER.key()}" "sa"
+            "${SemanticAttributes.DB_STATEMENT.key()}" String
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "h2:mem:"
           }
         }
         span(3) {
           operationName "Transaction.commit"
           spanKind INTERNAL
           childOf span(0)
-          tags {
+          attributes {
           }
         }
       }
@@ -84,27 +84,26 @@ class QueryTest extends AbstractHibernateTest {
             operationName "Session"
             spanKind INTERNAL
             parent()
-            tags {
+            attributes {
             }
           }
           span(1) {
             operationName expectedSpanName
             spanKind INTERNAL
             childOf span(0)
-            tags {
+            attributes {
             }
           }
           span(2) {
             operationName ~/^select /
             spanKind CLIENT
             childOf span(1)
-            tags {
-              "$Tags.DB_TYPE" "sql"
-              "$Tags.DB_INSTANCE" "db1"
-              "$Tags.DB_USER" "sa"
-              "$Tags.DB_STATEMENT" ~/^select /
-              "$Tags.DB_URL" "h2:mem:"
-              "span.origin.type" "org.h2.jdbc.JdbcPreparedStatement"
+            attributes {
+              "${SemanticAttributes.DB_SYSTEM.key()}" "h2"
+              "${SemanticAttributes.DB_NAME.key()}" "db1"
+              "${SemanticAttributes.DB_USER.key()}" "sa"
+              "${SemanticAttributes.DB_STATEMENT.key()}" ~/^select /
+              "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "h2:mem:"
             }
           }
         }
@@ -157,34 +156,33 @@ class QueryTest extends AbstractHibernateTest {
           operationName "Session"
           spanKind INTERNAL
           parent()
-          tags {
+          attributes {
           }
         }
         span(1) {
           operationName "from Value"
           spanKind INTERNAL
           childOf span(0)
-          tags {
+          attributes {
           }
         }
         span(2) {
           operationName ~/^select /
           spanKind CLIENT
           childOf span(1)
-          tags {
-            "$Tags.DB_TYPE" "sql"
-            "$Tags.DB_INSTANCE" "db1"
-            "$Tags.DB_USER" "sa"
-            "$Tags.DB_STATEMENT" ~/^select /
-            "$Tags.DB_URL" "h2:mem:"
-            "span.origin.type" "org.h2.jdbc.JdbcPreparedStatement"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "h2"
+            "${SemanticAttributes.DB_NAME.key()}" "db1"
+            "${SemanticAttributes.DB_USER.key()}" "sa"
+            "${SemanticAttributes.DB_STATEMENT.key()}" ~/^select /
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "h2:mem:"
           }
         }
         span(3) {
           operationName "Transaction.commit"
           spanKind INTERNAL
           childOf span(0)
-          tags {
+          attributes {
           }
         }
       }

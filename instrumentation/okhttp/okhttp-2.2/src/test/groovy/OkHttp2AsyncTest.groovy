@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static java.util.concurrent.TimeUnit.SECONDS
+
 import com.squareup.okhttp.Callback
 import com.squareup.okhttp.Headers
 import com.squareup.okhttp.MediaType
@@ -20,11 +23,8 @@ import com.squareup.okhttp.Request
 import com.squareup.okhttp.RequestBody
 import com.squareup.okhttp.Response
 import com.squareup.okhttp.internal.http.HttpMethod
-
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicReference
-
-import static java.util.concurrent.TimeUnit.SECONDS
 
 class OkHttp2AsyncTest extends OkHttp2Test {
   @Override

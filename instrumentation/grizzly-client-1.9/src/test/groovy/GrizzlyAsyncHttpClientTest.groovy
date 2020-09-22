@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import com.ning.http.client.AsyncCompletionHandler
 import com.ning.http.client.AsyncHttpClient
 import com.ning.http.client.Request
@@ -26,7 +27,7 @@ import spock.lang.Shared
 class GrizzlyAsyncHttpClientTest extends HttpClientTest {
 
   static {
-    System.setProperty("ota.integration.grizzly-client.enabled", "true")
+    System.setProperty("otel.integration.grizzly-client.enabled", "true")
   }
 
   @AutoCleanup
@@ -43,27 +44,18 @@ class GrizzlyAsyncHttpClientTest extends HttpClientTest {
     }
     Request request = requestBuilder.build()
 
-    def handler = new AsyncCompletionHandlerMock(callback)
+    def handler = new AsyncCompletionHandler() {
+      @Override
+      Object onCompleted(Response response) throws Exception {
+        if (callback != null) {
+          callback()
+        }
+        return response
+      }
+    }
 
     def response = client.executeRequest(request, handler).get()
     response.statusCode
-  }
-
-  class AsyncCompletionHandlerMock extends AsyncCompletionHandler<Response> {
-
-    private Closure callback
-
-    AsyncCompletionHandlerMock(Closure callback) {
-      this.callback = callback
-    }
-
-    @Override
-    Response onCompleted(Response response) throws Exception {
-      if (callback != null) {
-        callback()
-      }
-      return response
-    }
   }
 
   @Override

@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.opentelemetry.trace.Span.Kind.CLIENT
+import static io.opentelemetry.trace.Span.Kind.SERVER
+
 import example.GreeterGrpc
 import example.Helloworld
 import io.grpc.BindableService
@@ -21,16 +25,13 @@ import io.grpc.ManagedChannelBuilder
 import io.grpc.Server
 import io.grpc.ServerBuilder
 import io.grpc.stub.StreamObserver
-import io.opentelemetry.auto.instrumentation.api.MoreTags
 import io.opentelemetry.auto.test.AgentTestRunner
 import io.opentelemetry.auto.test.utils.PortUtils
-
+import io.opentelemetry.trace.Status
+import io.opentelemetry.trace.attributes.SemanticAttributes
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
-
-import static io.opentelemetry.trace.Span.Kind.CLIENT
-import static io.opentelemetry.trace.Span.Kind.SERVER
 
 class GrpcStreamingTest extends AgentTestRunner {
 
@@ -118,11 +119,13 @@ class GrpcStreamingTest extends AgentTestRunner {
           spanKind CLIENT
           parent()
           errored false
-          tags {
-            "$MoreTags.RPC_SERVICE" "Greeter"
-            "$MoreTags.NET_PEER_NAME" "localhost"
-            "$MoreTags.NET_PEER_PORT" port
-            "status.code" "OK"
+          status(Status.OK)
+          attributes {
+            "${SemanticAttributes.RPC_SYSTEM.key()}" "grpc"
+            "${SemanticAttributes.RPC_SERVICE.key()}" "example.Greeter"
+            "${SemanticAttributes.RPC_METHOD.key()}" "Conversation"
+            "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" port
           }
           (1..(clientMessageCount * serverMessageCount)).each {
             def messageId = it
@@ -140,11 +143,13 @@ class GrpcStreamingTest extends AgentTestRunner {
           spanKind SERVER
           childOf span(0)
           errored false
-          tags {
-            "$MoreTags.RPC_SERVICE" "Greeter"
-            "$MoreTags.NET_PEER_IP" "127.0.0.1"
-            "$MoreTags.NET_PEER_PORT" Long
-            "status.code" "OK"
+          status(Status.OK)
+          attributes {
+            "${SemanticAttributes.RPC_SYSTEM.key()}" "grpc"
+            "${SemanticAttributes.RPC_SERVICE.key()}" "example.Greeter"
+            "${SemanticAttributes.RPC_METHOD.key()}" "Conversation"
+            "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" Long
           }
           clientRange.each {
             def messageId = it

@@ -13,16 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import io.opentelemetry.auto.instrumentation.api.Tags
-import io.opentelemetry.auto.test.AgentTestRunner
-import org.apache.geode.cache.client.ClientCacheFactory
-import org.apache.geode.cache.client.ClientRegionShortcut
-import spock.lang.Shared
-import spock.lang.Unroll
 
 import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
 import static io.opentelemetry.trace.Span.Kind.CLIENT
 import static io.opentelemetry.trace.Span.Kind.INTERNAL
+
+import io.opentelemetry.auto.test.AgentTestRunner
+import io.opentelemetry.trace.attributes.SemanticAttributes
+import org.apache.geode.cache.client.ClientCacheFactory
+import org.apache.geode.cache.client.ClientRegionShortcut
+import spock.lang.Shared
+import spock.lang.Unroll
 
 @Unroll
 class PutGetTest extends AgentTestRunner {
@@ -130,29 +131,29 @@ class PutGetTest extends AgentTestRunner {
           operationName "clear"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "geode"
-            "$Tags.DB_INSTANCE" "test-region"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "geode"
+            "${SemanticAttributes.DB_NAME.key()}" "test-region"
           }
         }
         span(2) {
           operationName "put"
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "geode"
-            "$Tags.DB_INSTANCE" "test-region"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "geode"
+            "${SemanticAttributes.DB_NAME.key()}" "test-region"
           }
         }
         span(3) {
           operationName verb
           spanKind CLIENT
           errored false
-          tags {
-            "$Tags.DB_TYPE" "geode"
-            "$Tags.DB_INSTANCE" "test-region"
+          attributes {
+            "${SemanticAttributes.DB_SYSTEM.key()}" "geode"
+            "${SemanticAttributes.DB_NAME.key()}" "test-region"
             if (query != null) {
-              "$Tags.DB_STATEMENT" query
+              "${SemanticAttributes.DB_STATEMENT.key()}" query
             }
           }
         }

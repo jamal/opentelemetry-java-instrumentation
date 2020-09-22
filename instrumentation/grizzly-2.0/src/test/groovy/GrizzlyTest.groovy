@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.ERROR
+import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.EXCEPTION
+import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.QUERY_PARAM
+import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.REDIRECT
+import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCCESS
+
 import io.opentelemetry.auto.test.base.HttpServerTest
 import javax.ws.rs.GET
 import javax.ws.rs.NotFoundException
@@ -24,16 +31,10 @@ import org.glassfish.grizzly.http.server.HttpServer
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory
 import org.glassfish.jersey.server.ResourceConfig
 
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.ERROR
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.EXCEPTION
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.QUERY_PARAM
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.REDIRECT
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCCESS
-
 class GrizzlyTest extends HttpServerTest<HttpServer> {
 
   static {
-    System.setProperty("ota.integration.grizzly.enabled", "true")
+    System.setProperty("otel.integration.grizzly.enabled", "true")
   }
 
   @Override
@@ -106,7 +107,13 @@ class GrizzlyTest extends HttpServerTest<HttpServer> {
   }
 
   @Override
-  String expectedOperationName(String method, ServerEndpoint serverEndpoint) {
-    return 'HttpHandler.doHandle'
+  String expectedServerSpanName(String method, ServerEndpoint endpoint) {
+    return "HttpCodecFilter.handleRead"
+  }
+
+  @Override
+  boolean testException() {
+    // TODO(anuraaga): https://github.com/open-telemetry/opentelemetry-java-instrumentation/issues/807
+    return false
   }
 }

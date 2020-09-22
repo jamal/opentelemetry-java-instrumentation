@@ -13,14 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import io.opentelemetry.auto.test.base.HttpClientTest
-import org.apache.cxf.jaxrs.client.spec.ClientBuilderImpl
-import org.glassfish.jersey.client.ClientConfig
-import org.glassfish.jersey.client.ClientProperties
-import org.glassfish.jersey.client.JerseyClientBuilder
-import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder
-import spock.lang.Timeout
 
+import io.opentelemetry.auto.test.base.HttpClientTest
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import javax.ws.rs.client.AsyncInvoker
 import javax.ws.rs.client.Client
 import javax.ws.rs.client.ClientBuilder
@@ -29,8 +25,12 @@ import javax.ws.rs.client.InvocationCallback
 import javax.ws.rs.client.WebTarget
 import javax.ws.rs.core.MediaType
 import javax.ws.rs.core.Response
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
+import org.apache.cxf.jaxrs.client.spec.ClientBuilderImpl
+import org.glassfish.jersey.client.ClientConfig
+import org.glassfish.jersey.client.ClientProperties
+import org.glassfish.jersey.client.JerseyClientBuilder
+import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder
+import spock.lang.Timeout
 
 abstract class JaxRsClientAsyncTest extends HttpClientTest {
 
@@ -56,6 +56,7 @@ abstract class JaxRsClientAsyncTest extends HttpClientTest {
         latch.countDown()
       }
     }).get()
+    response.close()
 
     // need to wait for callback to complete in case test is expecting span from it
     latch.await()
@@ -72,7 +73,6 @@ class JerseyClientAsyncTest extends JaxRsClientAsyncTest {
   ClientBuilder builder() {
     ClientConfig config = new ClientConfig()
     config.property(ClientProperties.CONNECT_TIMEOUT, CONNECT_TIMEOUT_MS)
-    config.property(ClientProperties.READ_TIMEOUT, READ_TIMEOUT_MS)
     return new JerseyClientBuilder().withConfig(config)
   }
 
@@ -88,7 +88,6 @@ class ResteasyClientAsyncTest extends JaxRsClientAsyncTest {
   ClientBuilder builder() {
     return new ResteasyClientBuilder()
       .establishConnectionTimeout(CONNECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-      .socketTimeout(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
   }
 
   boolean testRedirects() {

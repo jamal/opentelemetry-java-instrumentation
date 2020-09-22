@@ -13,20 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.opentelemetry.auto.test.utils.PortUtils.UNUSABLE_PORT
+import static io.opentelemetry.auto.test.utils.TraceUtils.basicSpan
+import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
+
 import com.ning.http.client.AsyncCompletionHandler
 import com.ning.http.client.AsyncHttpClient
 import com.ning.http.client.AsyncHttpClientConfig
 import com.ning.http.client.Response
 import io.opentelemetry.auto.test.base.HttpClientTest
-import spock.lang.AutoCleanup
-import spock.lang.Shared
-
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
-
-import static io.opentelemetry.auto.test.utils.PortUtils.UNUSABLE_PORT
-import static io.opentelemetry.auto.test.utils.TraceUtils.basicSpan
-import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
+import spock.lang.AutoCleanup
+import spock.lang.Shared
 
 class Netty38ClientTest extends HttpClientTest {
 
@@ -52,6 +52,11 @@ class Netty38ClientTest extends HttpClientTest {
       }
     }).get()
     return response.statusCode
+  }
+
+  @Override
+  String userAgent() {
+    return "AHC"
   }
 
   @Override
@@ -91,18 +96,13 @@ class Netty38ClientTest extends HttpClientTest {
           operationName "CONNECT"
           childOf span(0)
           errored true
-          tags {
-            Class errorClass = ConnectException
-            try {
-              errorClass = Class.forName('io.netty.channel.AbstractChannel$AnnotatedConnectException')
-            } catch (ClassNotFoundException e) {
-              // Older versions use 'java.net.ConnectException' and do not have 'io.netty.channel.AbstractChannel$AnnotatedConnectException'
-            }
-            "error.type" errorClass.name
-            "error.stack" String
-            // slightly different message on windows
-            "error.msg" ~/Connection refused:( no further information:)? \/127.0.0.1:$UNUSABLE_PORT/
+          Class errorClass = ConnectException
+          try {
+            errorClass = Class.forName('io.netty.channel.AbstractChannel$AnnotatedConnectException')
+          } catch (ClassNotFoundException e) {
+            // Older versions use 'java.net.ConnectException' and do not have 'io.netty.channel.AbstractChannel$AnnotatedConnectException'
           }
+          errorEvent(errorClass, ~/Connection refused:( no further information:)? \/127.0.0.1:$UNUSABLE_PORT/)
         }
       }
     }

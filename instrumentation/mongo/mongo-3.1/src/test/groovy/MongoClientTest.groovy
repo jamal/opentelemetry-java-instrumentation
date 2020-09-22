@@ -13,24 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.opentelemetry.auto.test.utils.PortUtils.UNUSABLE_PORT
+import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
+import static io.opentelemetry.trace.Span.Kind.CLIENT
+
 import com.mongodb.MongoClient
 import com.mongodb.MongoClientOptions
 import com.mongodb.MongoTimeoutException
 import com.mongodb.ServerAddress
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.MongoDatabase
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
 import io.opentelemetry.auto.test.asserts.TraceAssert
 import io.opentelemetry.sdk.trace.data.SpanData
+import io.opentelemetry.trace.attributes.SemanticAttributes
 import org.bson.BsonDocument
 import org.bson.BsonString
 import org.bson.Document
 import spock.lang.Shared
-
-import static io.opentelemetry.auto.test.utils.PortUtils.UNUSABLE_PORT
-import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
-import static io.opentelemetry.trace.Span.Kind.CLIENT
 
 class MongoClientTest extends MongoBaseTest {
 
@@ -277,16 +277,16 @@ class MongoClientTest extends MongoBaseTest {
       } else {
         childOf((SpanData) parentSpan)
       }
-      tags {
-        "$MoreTags.NET_PEER_NAME" "localhost"
-        "$MoreTags.NET_PEER_IP" "127.0.0.1"
-        "$MoreTags.NET_PEER_PORT" port
-        "$Tags.DB_STATEMENT" {
+      attributes {
+        "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
+        "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
+        "${SemanticAttributes.NET_PEER_PORT.key()}" port
+        "${SemanticAttributes.DB_STATEMENT.key()}" {
           it.replace(" ", "") == statement
         }
-        "$Tags.DB_URL" "mongodb://localhost:" + port
-        "$Tags.DB_TYPE" "mongo"
-        "$Tags.DB_INSTANCE" instance
+        "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "mongodb://localhost:" + port
+        "${SemanticAttributes.DB_SYSTEM.key()}" "mongodb"
+        "${SemanticAttributes.DB_NAME.key()}" instance
       }
     }
   }

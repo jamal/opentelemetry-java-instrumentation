@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import io.opentelemetry.auto.instrumentation.api.MoreTags
-import io.opentelemetry.auto.instrumentation.api.Tags
+
+import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
+import static io.opentelemetry.trace.Span.Kind.CLIENT
+
 import io.opentelemetry.auto.test.base.HttpClientTest
+import io.opentelemetry.trace.attributes.SemanticAttributes
 import spock.lang.Ignore
 import spock.lang.Requires
 import spock.lang.Timeout
 import sun.net.www.protocol.https.HttpsURLConnectionImpl
-
-import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
-import static io.opentelemetry.trace.Span.Kind.CLIENT
 
 @Timeout(5)
 class HttpUrlConnectionTest extends HttpClientTest {
@@ -39,7 +39,6 @@ class HttpUrlConnectionTest extends HttpClientTest {
       connection.setRequestProperty("Connection", "close")
       connection.useCaches = true
       connection.connectTimeout = CONNECT_TIMEOUT_MS
-      connection.readTimeout = READ_TIMEOUT_MS
       def parentSpan = TEST_TRACER.getCurrentSpan()
       def stream = connection.inputStream
       assert TEST_TRACER.getCurrentSpan() == parentSpan
@@ -75,7 +74,8 @@ class HttpUrlConnectionTest extends HttpClientTest {
       connection = url.openConnection()
       connection.useCaches = useCaches
       assert activeSpan() != null
-      assert connection.getResponseCode() == STATUS // call before input stream to test alternate behavior
+      // call before input stream to test alternate behavior
+      assert connection.getResponseCode() == STATUS
       connection.inputStream
       stream = connection.inputStream // one more to ensure state is working
       lines = stream.readLines()
@@ -92,7 +92,7 @@ class HttpUrlConnectionTest extends HttpClientTest {
           operationName "someTrace"
           parent()
           errored false
-          tags {
+          attributes {
           }
         }
         span(1) {
@@ -100,12 +100,13 @@ class HttpUrlConnectionTest extends HttpClientTest {
           spanKind CLIENT
           childOf span(0)
           errored false
-          tags {
-            "$MoreTags.NET_PEER_NAME" "localhost"
-            "$MoreTags.NET_PEER_PORT" server.address.port
-            "$Tags.HTTP_URL" "$url"
-            "$Tags.HTTP_METHOD" "GET"
-            "$Tags.HTTP_STATUS" STATUS
+          attributes {
+            "${SemanticAttributes.NET_TRANSPORT.key()}" "IP.TCP"
+            "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" server.address.port
+            "${SemanticAttributes.HTTP_URL.key()}" "$url"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
+            "${SemanticAttributes.HTTP_STATUS_CODE.key()}" STATUS
           }
         }
         span(2) {
@@ -113,12 +114,13 @@ class HttpUrlConnectionTest extends HttpClientTest {
           spanKind CLIENT
           childOf span(0)
           errored false
-          tags {
-            "$MoreTags.NET_PEER_NAME" "localhost"
-            "$MoreTags.NET_PEER_PORT" server.address.port
-            "$Tags.HTTP_URL" "$url"
-            "$Tags.HTTP_METHOD" "GET"
-            "$Tags.HTTP_STATUS" STATUS
+          attributes {
+            "${SemanticAttributes.NET_TRANSPORT.key()}" "IP.TCP"
+            "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" server.address.port
+            "${SemanticAttributes.HTTP_URL.key()}" "$url"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
+            "${SemanticAttributes.HTTP_STATUS_CODE.key()}" STATUS
           }
         }
       }
@@ -149,7 +151,8 @@ class HttpUrlConnectionTest extends HttpClientTest {
       connection.useCaches = useCaches
       connection.addRequestProperty("is-test-server", "false")
       assert activeSpan() != null
-      assert connection.getResponseCode() == STATUS // call before input stream to test alternate behavior
+      // call before input stream to test alternate behavior
+      assert connection.getResponseCode() == STATUS
       stream = connection.inputStream
       lines = stream.readLines()
       stream.close()
@@ -163,7 +166,7 @@ class HttpUrlConnectionTest extends HttpClientTest {
           operationName "someTrace"
           parent()
           errored false
-          tags {
+          attributes {
           }
         }
         span(1) {
@@ -171,12 +174,13 @@ class HttpUrlConnectionTest extends HttpClientTest {
           spanKind CLIENT
           childOf span(0)
           errored false
-          tags {
-            "$MoreTags.NET_PEER_NAME" "localhost"
-            "$MoreTags.NET_PEER_PORT" server.address.port
-            "$Tags.HTTP_URL" "$url"
-            "$Tags.HTTP_METHOD" "GET"
-            "$Tags.HTTP_STATUS" STATUS
+          attributes {
+            "${SemanticAttributes.NET_TRANSPORT.key()}" "IP.TCP"
+            "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" server.address.port
+            "${SemanticAttributes.HTTP_URL.key()}" "$url"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
+            "${SemanticAttributes.HTTP_STATUS_CODE.key()}" STATUS
           }
         }
         span(2) {
@@ -184,12 +188,13 @@ class HttpUrlConnectionTest extends HttpClientTest {
           spanKind CLIENT
           childOf span(0)
           errored false
-          tags {
-            "$MoreTags.NET_PEER_NAME" "localhost"
-            "$MoreTags.NET_PEER_PORT" server.address.port
-            "$Tags.HTTP_URL" "$url"
-            "$Tags.HTTP_METHOD" "GET"
-            "$Tags.HTTP_STATUS" STATUS
+          attributes {
+            "${SemanticAttributes.NET_TRANSPORT.key()}" "IP.TCP"
+            "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" server.address.port
+            "${SemanticAttributes.HTTP_URL.key()}" "$url"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
+            "${SemanticAttributes.HTTP_STATUS_CODE.key()}" STATUS
           }
         }
       }
@@ -219,7 +224,7 @@ class HttpUrlConnectionTest extends HttpClientTest {
           operationName "someTrace"
           parent()
           errored false
-          tags {
+          attributes {
           }
         }
         span(1) {
@@ -227,12 +232,12 @@ class HttpUrlConnectionTest extends HttpClientTest {
           spanKind CLIENT
           childOf span(0)
           errored false
-          tags {
-            "$MoreTags.NET_PEER_NAME" "localhost"
-            "$MoreTags.NET_PEER_PORT" server.address.port
-            "$Tags.HTTP_URL" "$url"
-            "$Tags.HTTP_METHOD" "GET"
-            "$Tags.HTTP_STATUS" STATUS
+          attributes {
+            "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" server.address.port
+            "${SemanticAttributes.HTTP_URL.key()}" "$url"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
+            "${SemanticAttributes.HTTP_STATUS_CODE.key()}" STATUS
           }
         }
       }
@@ -278,7 +283,7 @@ class HttpUrlConnectionTest extends HttpClientTest {
           operationName "someTrace"
           parent()
           errored false
-          tags {
+          attributes {
           }
         }
         span(1) {
@@ -286,12 +291,12 @@ class HttpUrlConnectionTest extends HttpClientTest {
           spanKind CLIENT
           childOf span(0)
           errored false
-          tags {
-            "$MoreTags.NET_PEER_NAME" "localhost"
-            "$MoreTags.NET_PEER_PORT" server.address.port
-            "$Tags.HTTP_URL" "$url"
-            "$Tags.HTTP_METHOD" "POST"
-            "$Tags.HTTP_STATUS" STATUS
+          attributes {
+            "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
+            "${SemanticAttributes.NET_PEER_PORT.key()}" server.address.port
+            "${SemanticAttributes.HTTP_URL.key()}" "$url"
+            "${SemanticAttributes.HTTP_METHOD.key()}" "POST"
+            "${SemanticAttributes.HTTP_STATUS_CODE.key()}" STATUS
           }
         }
       }

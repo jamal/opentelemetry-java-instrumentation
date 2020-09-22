@@ -1,6 +1,8 @@
 buildscript {
   repositories {
+    mavenLocal()
     jcenter()
+    mavenCentral()
   }
   dependencies {
     classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.1'
@@ -17,4 +19,6 @@ targetCompatibility = 1.8
 subprojects { sub ->
   sub.apply plugin: 'com.github.johnrengelman.shadow'
   sub.apply from: "$rootDir/gradle/java.gradle"
+
+  javadoc.enabled = false
 }

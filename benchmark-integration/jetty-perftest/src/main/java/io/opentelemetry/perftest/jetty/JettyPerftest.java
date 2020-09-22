@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.opentelemetry.perftest.jetty;
 
 import static io.opentelemetry.trace.TracingContextUtils.currentContextWith;
@@ -37,10 +38,9 @@ public class JettyPerftest {
   private static final Server jettyServer = new Server(PORT);
   private static final ServletContextHandler servletContext = new ServletContextHandler();
 
-  private static final Tracer TRACER =
-      OpenTelemetry.getTracerProvider().get("io.opentelemetry.auto");
+  private static final Tracer TRACER = OpenTelemetry.getTracer("io.opentelemetry.auto");
 
-  public static void main(final String[] args) throws Exception {
+  public static void main(String[] args) throws Exception {
     servletContext.addServlet(PerfServlet.class, PATH);
     jettyServer.setHandler(servletContext);
     jettyServer.start();
@@ -53,7 +53,7 @@ public class JettyPerftest {
                 try {
                   jettyServer.stop();
                   jettyServer.destroy();
-                } catch (final Exception e) {
+                } catch (Exception e) {
                   throw new IllegalStateException(e);
                 }
               }
@@ -63,12 +63,12 @@ public class JettyPerftest {
   @WebServlet
   public static class PerfServlet extends HttpServlet {
     @Override
-    protected void doGet(final HttpServletRequest request, final HttpServletResponse response)
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
         throws IOException {
       if (request.getParameter("error") != null) {
         throw new RuntimeException("some sync error");
       }
-      final String workVal = request.getParameter("workTimeMS");
+      String workVal = request.getParameter("workTimeMS");
       long workTimeMS = 0l;
       if (null != workVal) {
         workTimeMS = Long.parseLong(workVal);
@@ -77,9 +77,9 @@ public class JettyPerftest {
       response.getWriter().print("Did " + workTimeMS + "ms of work.");
     }
 
-    private void scheduleWork(final long workTimeMS) {
-      final Span span = TRACER.spanBuilder("work").startSpan();
-      try (final Scope scope = currentContextWith(span)) {
+    private void scheduleWork(long workTimeMS) {
+      Span span = TRACER.spanBuilder("work").startSpan();
+      try (Scope scope = currentContextWith(span)) {
         if (span != null) {
           span.setAttribute("work-time", workTimeMS);
           span.setAttribute("info", "interesting stuff");

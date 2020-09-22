@@ -13,6 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.opentelemetry.auto.test.utils.PortUtils.UNUSABLE_PORT
+import static io.opentelemetry.auto.test.utils.TraceUtils.basicSpan
+import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
+import static org.asynchttpclient.Dsl.asyncHttpClient
+
 import io.netty.channel.AbstractChannel
 import io.netty.channel.Channel
 import io.netty.channel.ChannelHandler
@@ -20,26 +26,18 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.channel.ChannelInitializer
 import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.handler.codec.http.HttpClientCodec
-import io.opentelemetry.auto.instrumentation.netty.v4_1.client.HttpClientTracingHandler
 import io.opentelemetry.auto.test.base.HttpClientTest
+import io.opentelemetry.instrumentation.auto.netty.v4_1.client.HttpClientTracingHandler
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import org.asynchttpclient.AsyncCompletionHandler
 import org.asynchttpclient.AsyncHttpClient
 import org.asynchttpclient.DefaultAsyncHttpClientConfig
 import org.asynchttpclient.Response
-import spock.lang.Retry
 import spock.lang.Shared
 import spock.lang.Timeout
 
-import java.util.concurrent.ExecutionException
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
-
-import static io.opentelemetry.auto.test.utils.PortUtils.UNUSABLE_PORT
-import static io.opentelemetry.auto.test.utils.TraceUtils.basicSpan
-import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
-import static org.asynchttpclient.Dsl.asyncHttpClient
-
-@Retry
 @Timeout(5)
 class Netty41ClientTest extends HttpClientTest {
 
@@ -61,6 +59,11 @@ class Netty41ClientTest extends HttpClientTest {
       }
     }).get()
     return response.statusCode
+  }
+
+  @Override
+  String userAgent() {
+    return "AHC"
   }
 
   @Override
@@ -105,12 +108,7 @@ class Netty41ClientTest extends HttpClientTest {
             operationName "CONNECT"
             childOf span(0)
             errored true
-            tags {
-              "error.type" AbstractChannel.AnnotatedConnectException.name
-              "error.stack" String
-              // slightly different message on windows
-              "error.msg" ~/Connection refused:( no further information:)? localhost\/[0-9.:]+:$UNUSABLE_PORT/
-            }
+            errorEvent(AbstractChannel.AnnotatedConnectException, ~/Connection refused:( no further information:)? localhost\/\[?[0-9.:]+\]?:$UNUSABLE_PORT/)
           }
         }
       }
@@ -210,7 +208,7 @@ class Netty41ClientTest extends HttpClientTest {
           childOf span(0)
           operationName "tracedMethod"
           errored false
-          tags {
+          attributes {
           }
         }
         clientSpan(it, 2, span(1), method)

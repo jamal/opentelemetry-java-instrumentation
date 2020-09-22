@@ -13,27 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import static io.opentelemetry.trace.Span.Kind.CLIENT
+import static io.opentelemetry.trace.Span.Kind.CONSUMER
+import static io.opentelemetry.trace.Span.Kind.PRODUCER
+
 import io.opentelemetry.auto.test.AgentTestRunner
 import io.opentelemetry.auto.test.asserts.TraceAssert
 import io.opentelemetry.sdk.trace.data.SpanData
-import org.apache.activemq.ActiveMQConnectionFactory
-import org.apache.activemq.ActiveMQMessageConsumer
-import org.apache.activemq.ActiveMQMessageProducer
-import org.apache.activemq.command.ActiveMQTextMessage
-import org.apache.activemq.junit.EmbeddedActiveMQBroker
-import spock.lang.Shared
-
+import io.opentelemetry.trace.attributes.SemanticAttributes
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicReference
 import javax.jms.Connection
 import javax.jms.Message
 import javax.jms.MessageListener
 import javax.jms.Session
 import javax.jms.TextMessage
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.atomic.AtomicReference
-
-import static io.opentelemetry.trace.Span.Kind.CLIENT
-import static io.opentelemetry.trace.Span.Kind.CONSUMER
-import static io.opentelemetry.trace.Span.Kind.PRODUCER
+import org.apache.activemq.ActiveMQConnectionFactory
+import org.apache.activemq.ActiveMQMessageConsumer
+import org.apache.activemq.command.ActiveMQTextMessage
+import org.apache.activemq.junit.EmbeddedActiveMQBroker
+import spock.lang.Shared
 
 class JMS1Test extends AgentTestRunner {
   @Shared
@@ -47,9 +47,9 @@ class JMS1Test extends AgentTestRunner {
 
   def setupSpec() {
     broker.start()
-    final ActiveMQConnectionFactory connectionFactory = broker.createConnectionFactory()
+    ActiveMQConnectionFactory connectionFactory = broker.createConnectionFactory()
 
-    final Connection connection = connectionFactory.createConnection()
+    Connection connection = connectionFactory.createConnection()
     connection.start()
     session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)
   }
@@ -66,15 +66,16 @@ class JMS1Test extends AgentTestRunner {
     producer.send(message)
 
     TextMessage receivedMessage = consumer.receive()
+    String messageId = receivedMessage.getJMSMessageID()
 
     expect:
     receivedMessage.text == messageText
     assertTraces(2) {
       trace(0, 1) {
-        producerSpan(it, 0, expectedSpanName)
+        producerSpan(it, 0, destinationType, destinationName)
       }
       trace(1, 1) {
-        consumerSpan(it, 0, expectedSpanName, false, ActiveMQMessageConsumer, traces[0][0])
+        consumerSpan(it, 0, destinationType, destinationName, messageId, false, ActiveMQMessageConsumer, traces[0][0])
       }
     }
 
@@ -83,11 +84,11 @@ class JMS1Test extends AgentTestRunner {
     consumer.close()
 
     where:
-    destination                      | expectedSpanName
-    session.createQueue("someQueue") | "queue/someQueue"
-    session.createTopic("someTopic") | "topic/someTopic"
-    session.createTemporaryQueue()   | "queue/<temporary>"
-    session.createTemporaryTopic()   | "topic/<temporary>"
+    destination                      | destinationType | destinationName
+    session.createQueue("someQueue") | "queue"         | "someQueue"
+    session.createTopic("someTopic") | "topic"         | "someTopic"
+    session.createTemporaryQueue()   | "queue"         | "<temporary>"
+    session.createTemporaryTopic()   | "topic"         | "<temporary>"
   }
 
   def "sending to a MessageListener on #expectedSpanName generates a span"() {
@@ -110,8 +111,8 @@ class JMS1Test extends AgentTestRunner {
     expect:
     assertTraces(1) {
       trace(0, 2) {
-        producerSpan(it, 0, expectedSpanName)
-        consumerSpan(it, 1, expectedSpanName, true, consumer.messageListener.class, span(0))
+        producerSpan(it, 0, destinationType, destinationName)
+        consumerSpan(it, 1, destinationType, destinationName, messageRef.get().getJMSMessageID(), true, consumer.messageListener.class, span(0))
       }
     }
     // This check needs to go after all traces have been accounted for
@@ -122,11 +123,11 @@ class JMS1Test extends AgentTestRunner {
     consumer.close()
 
     where:
-    destination                      | expectedSpanName
-    session.createQueue("someQueue") | "queue/someQueue"
-    session.createTopic("someTopic") | "topic/someTopic"
-    session.createTemporaryQueue()   | "queue/<temporary>"
-    session.createTemporaryTopic()   | "topic/<temporary>"
+    destination                      | destinationType | destinationName
+    session.createQueue("someQueue") | "queue"         | "someQueue"
+    session.createTopic("someTopic") | "topic"         | "someTopic"
+    session.createTemporaryQueue()   | "queue"         | "<temporary>"
+    session.createTemporaryTopic()   | "topic"         | "<temporary>"
   }
 
   def "failing to receive message with receiveNoWait on #expectedSpanName works"() {
@@ -142,11 +143,12 @@ class JMS1Test extends AgentTestRunner {
       trace(0, 1) { // Consumer trace
         span(0) {
           parent()
-          operationName "jms.receiveNoWait"
+          operationName destinationType + "/" + destinationName + " receive"
           spanKind CLIENT
           errored false
-          tags {
-            "span.origin.type" ActiveMQMessageConsumer.name
+          attributes {
+            "${SemanticAttributes.MESSAGING_DESTINATION_KIND.key()}" destinationType
+            "${SemanticAttributes.MESSAGING_DESTINATION.key()}" destinationName
           }
         }
       }
@@ -156,9 +158,9 @@ class JMS1Test extends AgentTestRunner {
     consumer.close()
 
     where:
-    destination                      | expectedSpanName
-    session.createQueue("someQueue") | "queue/someQueue"
-    session.createTopic("someTopic") | "topic/someTopic"
+    destination                      | destinationType | destinationName
+    session.createQueue("someQueue") | "queue"         | "someQueue"
+    session.createTopic("someTopic") | "topic"         | "someTopic"
   }
 
   def "failing to receive message with wait(timeout) on #expectedSpanName works"() {
@@ -174,11 +176,12 @@ class JMS1Test extends AgentTestRunner {
       trace(0, 1) { // Consumer trace
         span(0) {
           parent()
-          operationName "jms.receive"
+          operationName destinationType + "/" + destinationName + " receive"
           spanKind CLIENT
           errored false
-          tags {
-            "span.origin.type" ActiveMQMessageConsumer.name
+          attributes {
+            "${SemanticAttributes.MESSAGING_DESTINATION_KIND.key()}" destinationType
+            "${SemanticAttributes.MESSAGING_DESTINATION.key()}" destinationName
           }
         }
       }
@@ -188,9 +191,9 @@ class JMS1Test extends AgentTestRunner {
     consumer.close()
 
     where:
-    destination                      | expectedSpanName
-    session.createQueue("someQueue") | "queue/someQueue"
-    session.createTopic("someTopic") | "topic/someTopic"
+    destination                      | destinationType | destinationName
+    session.createQueue("someQueue") | "queue"         | "someQueue"
+    session.createTopic("someTopic") | "topic"         | "someTopic"
   }
 
   def "sending a read-only message to #expectedSpanName fails"() {
@@ -216,16 +219,21 @@ class JMS1Test extends AgentTestRunner {
     // The consumer span will also not be linked to the parent.
     assertTraces(2) {
       trace(0, 1) {
-        producerSpan(it, 0, expectedSpanName)
+        producerSpan(it, 0, destinationType, destinationName)
       }
       trace(1, 1) {
         span(0) {
           parent()
-          operationName expectedSpanName
+          operationName destinationType + "/" + destinationName + " receive"
           spanKind CLIENT
           errored false
-          tags {
-            "span.origin.type" ActiveMQMessageConsumer.name
+          attributes {
+            "${SemanticAttributes.MESSAGING_DESTINATION_KIND.key()}" destinationType
+            "${SemanticAttributes.MESSAGING_DESTINATION.key()}" destinationName
+            "${SemanticAttributes.MESSAGING_MESSAGE_ID.key()}" receivedMessage.getJMSMessageID()
+            if (destinationName == "<temporary>") {
+              "${SemanticAttributes.MESSAGING_TEMP_DESTINATION.key()}" true
+            }
           }
         }
       }
@@ -236,28 +244,32 @@ class JMS1Test extends AgentTestRunner {
     consumer.close()
 
     where:
-    destination                      | expectedSpanName
-    session.createQueue("someQueue") | "queue/someQueue"
-    session.createTopic("someTopic") | "topic/someTopic"
-    session.createTemporaryQueue()   | "queue/<temporary>"
-    session.createTemporaryTopic()   | "topic/<temporary>"
+    destination                      | destinationType | destinationName
+    session.createQueue("someQueue") | "queue"         | "someQueue"
+    session.createTopic("someTopic") | "topic"         | "someTopic"
+    session.createTemporaryQueue()   | "queue"         | "<temporary>"
+    session.createTemporaryTopic()   | "topic"         | "<temporary>"
   }
 
-  static producerSpan(TraceAssert trace, int index, String expectedSpanName) {
+  static producerSpan(TraceAssert trace, int index, String destinationType, String destinationName) {
     trace.span(index) {
-      operationName expectedSpanName
+      operationName destinationType + "/" + destinationName + " send"
       spanKind PRODUCER
       errored false
       parent()
-      tags {
-        "span.origin.type" ActiveMQMessageProducer.name
+      attributes {
+        "${SemanticAttributes.MESSAGING_DESTINATION_KIND.key()}" destinationType
+        "${SemanticAttributes.MESSAGING_DESTINATION.key()}" destinationName
+        if (destinationName == "<temporary>") {
+          "${SemanticAttributes.MESSAGING_TEMP_DESTINATION.key()}" true
+        }
       }
     }
   }
 
-  static consumerSpan(TraceAssert trace, int index, String expectedSpanName, boolean messageListener, Class origin, Object parentOrLinkedSpan) {
+  static consumerSpan(TraceAssert trace, int index, String destinationType, String destinationName, String messageId, boolean messageListener, Class origin, Object parentOrLinkedSpan) {
     trace.span(index) {
-      operationName expectedSpanName
+      operationName destinationType + "/" + destinationName + " receive"
       if (messageListener) {
         spanKind CONSUMER
         childOf((SpanData) parentOrLinkedSpan)
@@ -267,8 +279,17 @@ class JMS1Test extends AgentTestRunner {
         hasLink((SpanData) parentOrLinkedSpan)
       }
       errored false
-      tags {
-        "span.origin.type" origin.name
+      attributes {
+        "${SemanticAttributes.MESSAGING_DESTINATION_KIND.key()}" destinationType
+        "${SemanticAttributes.MESSAGING_DESTINATION.key()}" destinationName
+        if (messageId != null) {
+          "${SemanticAttributes.MESSAGING_MESSAGE_ID.key()}" messageId
+        } else {
+          "${SemanticAttributes.MESSAGING_MESSAGE_ID.key()}" String
+        }
+        if (destinationName == "<temporary>") {
+          "${SemanticAttributes.MESSAGING_TEMP_DESTINATION.key()}" true
+        }
       }
     }
   }

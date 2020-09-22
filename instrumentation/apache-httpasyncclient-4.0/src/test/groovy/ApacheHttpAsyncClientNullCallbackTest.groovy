@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import io.opentelemetry.auto.test.base.HttpClientTest
+import java.util.concurrent.Future
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.impl.nio.client.HttpAsyncClients
 import org.apache.http.message.BasicHeader
@@ -21,15 +23,12 @@ import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Timeout
 
-import java.util.concurrent.Future
-
 @Timeout(5)
 class ApacheHttpAsyncClientNullCallbackTest extends HttpClientTest {
 
   @Shared
   RequestConfig requestConfig = RequestConfig.custom()
     .setConnectTimeout(CONNECT_TIMEOUT_MS)
-    .setSocketTimeout(READ_TIMEOUT_MS)
     .build()
 
   @AutoCleanup

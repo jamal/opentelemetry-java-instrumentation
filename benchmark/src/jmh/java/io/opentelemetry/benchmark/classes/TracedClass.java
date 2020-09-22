@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.opentelemetry.benchmark.classes;
 
 import io.opentelemetry.OpenTelemetry;
 import io.opentelemetry.trace.Tracer;
 
 public class TracedClass extends UntracedClass {
-  private static final Tracer TRACER =
-      OpenTelemetry.getTracerProvider().get("io.opentelemetry.auto");
+  private static final Tracer TRACER = OpenTelemetry.getTracer("io.opentelemetry.auto");
 
   @Override
   public void f() {

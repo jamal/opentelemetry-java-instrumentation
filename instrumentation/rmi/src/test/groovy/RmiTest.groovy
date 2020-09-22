@@ -13,19 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import io.opentelemetry.auto.test.AgentTestRunner
-import io.opentelemetry.auto.test.utils.PortUtils
-import rmi.app.Greeter
-import rmi.app.Server
-import rmi.app.ServerLegacy
-
-import java.rmi.registry.LocateRegistry
-import java.rmi.server.UnicastRemoteObject
 
 import static io.opentelemetry.auto.test.utils.TraceUtils.basicSpan
 import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
 import static io.opentelemetry.trace.Span.Kind.CLIENT
 import static io.opentelemetry.trace.Span.Kind.SERVER
+
+import io.opentelemetry.auto.test.AgentTestRunner
+import io.opentelemetry.auto.test.utils.PortUtils
+import io.opentelemetry.trace.attributes.SemanticAttributes
+import java.rmi.registry.LocateRegistry
+import java.rmi.server.UnicastRemoteObject
+import rmi.app.Greeter
+import rmi.app.Server
+import rmi.app.ServerLegacy
 
 class RmiTest extends AgentTestRunner {
   def registryPort = PortUtils.randomOpenPort()
@@ -53,18 +54,22 @@ class RmiTest extends AgentTestRunner {
       trace(0, 3) {
         basicSpan(it, 0, "parent")
         span(1) {
-          operationName "Greeter.hello"
+          operationName "rmi.app.Greeter/hello"
           spanKind CLIENT
           childOf span(0)
-          tags {
-            "span.origin.type" Greeter.canonicalName
+          attributes {
+            "${SemanticAttributes.RPC_SYSTEM.key()}" "java_rmi"
+            "${SemanticAttributes.RPC_SERVICE.key()}" "rmi.app.Greeter"
+            "${SemanticAttributes.RPC_METHOD.key()}" "hello"
           }
         }
         span(2) {
-          operationName "Server.hello"
+          operationName "rmi.app.Server/hello"
           spanKind SERVER
-          tags {
-            "span.origin.type" server.class.canonicalName
+          attributes {
+            "${SemanticAttributes.RPC_SYSTEM.key()}" "java_rmi"
+            "${SemanticAttributes.RPC_SERVICE.key()}" "rmi.app.Server"
+            "${SemanticAttributes.RPC_METHOD.key()}" "hello"
           }
         }
       }
@@ -110,22 +115,27 @@ class RmiTest extends AgentTestRunner {
       trace(0, 3) {
         basicSpan(it, 0, "parent", null, thrownException)
         span(1) {
-          operationName "Greeter.exceptional"
+          operationName "rmi.app.Greeter/exceptional"
           spanKind CLIENT
           childOf span(0)
           errored true
-          tags {
-            "span.origin.type" Greeter.canonicalName
-            errorTags(RuntimeException, String)
+          errorEvent(RuntimeException, String)
+          attributes {
+            "${SemanticAttributes.RPC_SYSTEM.key()}" "java_rmi"
+            "${SemanticAttributes.RPC_SERVICE.key()}" "rmi.app.Greeter"
+            "${SemanticAttributes.RPC_METHOD.key()}" "exceptional"
+
           }
         }
         span(2) {
-          operationName "Server.exceptional"
+          operationName "rmi.app.Server/exceptional"
           spanKind SERVER
           errored true
-          tags {
-            "span.origin.type" server.class.canonicalName
-            errorTags(RuntimeException, String)
+          errorEvent(RuntimeException, String)
+          attributes {
+            "${SemanticAttributes.RPC_SYSTEM.key()}" "java_rmi"
+            "${SemanticAttributes.RPC_SERVICE.key()}" "rmi.app.Server"
+            "${SemanticAttributes.RPC_METHOD.key()}" "exceptional"
           }
         }
       }
@@ -152,19 +162,23 @@ class RmiTest extends AgentTestRunner {
       trace(0, 3) {
         basicSpan(it, 0, "parent")
         span(1) {
-          operationName "Greeter.hello"
+          operationName "rmi.app.Greeter/hello"
           spanKind CLIENT
           childOf span(0)
-          tags {
-            "span.origin.type" Greeter.canonicalName
+          attributes {
+            "${SemanticAttributes.RPC_SYSTEM.key()}" "java_rmi"
+            "${SemanticAttributes.RPC_SERVICE.key()}" "rmi.app.Greeter"
+            "${SemanticAttributes.RPC_METHOD.key()}" "hello"
           }
         }
         span(2) {
           childOf span(1)
-          operationName "ServerLegacy.hello"
+          operationName "rmi.app.ServerLegacy/hello"
           spanKind SERVER
-          tags {
-            "span.origin.type" server.class.canonicalName
+          attributes {
+            "${SemanticAttributes.RPC_SYSTEM.key()}" "java_rmi"
+            "${SemanticAttributes.RPC_SERVICE.key()}" "rmi.app.ServerLegacy"
+            "${SemanticAttributes.RPC_METHOD.key()}" "hello"
           }
         }
       }
